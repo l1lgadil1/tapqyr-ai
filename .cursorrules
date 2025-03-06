@@ -6,9 +6,9 @@ Develop an AI-powered TodoList application that allows users to create, read, up
 
 # Tech Stack
 - React 
+- Vite
 - ThreeJS
 - React Three Fiber
-- NextJS 
 - ShadCN UI
 - Zustand
 - NestJS 
