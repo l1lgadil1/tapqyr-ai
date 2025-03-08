@@ -1,54 +1,98 @@
-# React + TypeScript + Vite
+# TapqyrAI - Умный Список Задач с ИИ
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Обзор проекта
 
-Currently, two official plugins are available:
+TapqyrAI - это современное веб-приложение для управления задачами, использующее искусственный интеллект для оптимизации процесса планирования. Приложение позволяет пользователям создавать, просматривать, обновлять и удалять задачи (CRUD), а также использовать ИИ для автоматического создания структурированных задач на основе текстовых запросов.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Ключевые возможности
 
-## Expanding the ESLint configuration
+### Аутентификация и авторизация пользователей
+- Регистрация, вход и выход из системы
+- Безопасный доступ к пользовательским данным
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Управление задачами (CRUD)
+- Создание, чтение, обновление и удаление задач вручную
+- Категоризация и приоритизация задач
+- Функции установки сроков и напоминаний
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+### Генерация задач с помощью ИИ
+- Пользователи могут предоставить запрос (например, "Я хочу изучить программирование")
+- ИИ генерирует структурированные задачи с подзадачами (например, "Выбрать язык программирования", "Составить график обучения" и т.д.)
+
+### Автоматизация задач с помощью ИИ
+- ИИ может автоматически создавать, обновлять или удалять задачи на основе поведения пользователя или ввода
+- ИИ предлагает улучшения или модификации списков задач
+
+### Отслеживание выполнения задач
+- Отметка задач как выполненных
+- Отслеживание прогресса и аналитика
+
+### Улучшения пользовательского опыта
+- Поддержка темного режима
+- Уведомления и напоминания (электронная почта, push-уведомления)
+- Синхронизация между устройствами
+
+## Технологический стек
+
+### Фронтенд
+- React 19
+- TypeScript
+- Vite
+- ThreeJS
+- React Three Fiber
+- ShadCN UI
+- Radix UI
+- Tailwind CSS
+- Zustand (управление состоянием)
+- React Router
+
+### Бэкенд
+- NestJS
+- PrismaORM
+- OpenAI API
+
+## Архитектура
+
+Проект следует архитектуре Feature-Sliced Design (FSD), которая организует код вокруг бизнес-доменов и функций:
+
+- **app/** - Инициализация приложения, глобальные провайдеры, стили и конфигурация
+- **processes/** - Сложные многоэтапные бизнес-процессы
+- **pages/** - Композиционный слой, объединяющий виджеты и функции для конкретных маршрутов
+- **widgets/** - Сложные блоки UI, объединяющие несколько сущностей и функций
+- **features/** - Пользовательские взаимодействия, бизнес-возможности
+- **entities/** - Бизнес-сущности с их моделями данных, API и UI-представлениями
+- **shared/** - Переиспользуемый инфраструктурный код без бизнес-логики
+
+## Установка и запуск
+
+### Требования
+- Node.js 20.x или выше
+- npm 10.x или выше
+
+### Установка зависимостей
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
+### Запуск в режиме разработки
+```bash
+npm run dev
 ```
+
+### Сборка для продакшена
+```bash
+npm run build
+```
+
+### Предпросмотр продакшен-сборки
+```bash
+npm run preview
+```
+
+## Лицензия
+
+Этот проект распространяется под лицензией MIT. См. файл LICENSE для получения дополнительной информации.
+
+## Авторы
+
+Разработано командой TapqyrAI.
