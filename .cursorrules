@@ -1,5 +1,5 @@
 # Title
-AI-Powered TodoList App
+TapqyrAI
 
 # Project Overiew
 Develop an AI-powered TodoList application that allows users to create, read, update, and delete (CRUD) tasks. The key feature of the application is AI-driven task management, where users can provide prompts, and the AI will generate structured tasks. Additionally, the AI will be able to perform CRUD operations on behalf of the user.
