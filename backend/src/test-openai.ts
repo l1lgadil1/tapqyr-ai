@@ -1,21 +1,28 @@
-import openaiService from './services/openai-service';
-import logger from './utils/logger';
+import OpenAI from 'openai';
+import config from './config';
 
 async function testOpenAI() {
   try {
-    logger.info('Testing OpenAI service...');
+    console.log('Testing OpenAI API connection...');
+    console.log(`Using API key: ${config.openai.apiKey.substring(0, 10)}...`);
     
-    const prompt = 'Create a study plan for learning JavaScript';
-    logger.info(`Using prompt: ${prompt}`);
+    const openai = new OpenAI({
+      apiKey: config.openai.apiKey,
+    });
     
-    const tasks = await openaiService.generateTasks(prompt);
-    logger.info(`Generated ${tasks.length} tasks`);
-    logger.info(JSON.stringify(tasks, null, 2));
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: 'You are a helpful assistant.' },
+        { role: 'user', content: 'Hello, are you working?' }
+      ],
+      max_tokens: 50,
+    });
     
-    logger.info('Test completed successfully');
+    console.log('OpenAI API connection successful!');
+    console.log('Response:', response.choices[0]?.message?.content);
   } catch (error) {
-    logger.error(`Test failed: ${(error as Error).message}`);
-    logger.error(error);
+    console.error('Error testing OpenAI API:', error);
   }
 }
 

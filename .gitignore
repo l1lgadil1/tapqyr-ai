@@ -9,6 +9,7 @@ lerna-debug.log*
 
 # cursor
 .cursorrules
+.cursor/
 
 node_modules
 dist

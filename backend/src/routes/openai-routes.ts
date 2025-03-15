@@ -24,6 +24,25 @@ router.post(
 );
 
 /**
+ * @route POST /api/openai/actions
+ * @desc Process an AI action based on user prompt
+ * @access Public
+ */
+router.post(
+  '/actions',
+  [
+    body('prompt')
+      .notEmpty()
+      .withMessage('Prompt is required')
+      .isString()
+      .withMessage('Prompt must be a string')
+      .isLength({ min: 3, max: 1000 })
+      .withMessage('Prompt must be between 3 and 1000 characters'),
+  ],
+  openaiController.processAction
+);
+
+/**
  * @route POST /api/openai/tasks
  * @desc Generate tasks from a prompt
  * @access Public

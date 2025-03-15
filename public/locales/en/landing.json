@@ -1,0 +1,61 @@
+{
+  "hero": {
+    "title": "Manage Tasks with AI",
+    "subtitle": "TapqyrAI helps you organize your life with AI-powered task management",
+    "cta": "Get Started"
+  },
+  "features": {
+    "title": "Features",
+    "aiGeneration": {
+      "title": "AI Task Generation",
+      "description": "Let AI create structured task lists based on your goals"
+    },
+    "taskManagement": {
+      "title": "Smart Task Management",
+      "description": "Create, organize, and track your tasks with ease"
+    },
+    "prioritization": {
+      "title": "Intelligent Prioritization",
+      "description": "Focus on what matters most with AI-driven task prioritization"
+    },
+    "reminders": {
+      "title": "Smart Reminders",
+      "description": "Never miss a deadline with customizable notifications"
+    }
+  },
+  "howItWorks": {
+    "title": "How It Works",
+    "step1": {
+      "title": "Describe Your Goal",
+      "description": "Tell the AI what you want to accomplish"
+    },
+    "step2": {
+      "title": "Generate Tasks",
+      "description": "AI creates a structured task list with subtasks"
+    },
+    "step3": {
+      "title": "Track Progress",
+      "description": "Complete tasks and monitor your progress"
+    }
+  },
+  "testimonials": {
+    "title": "What Our Users Say",
+    "testimonial1": {
+      "quote": "TapqyrAI has completely transformed how I organize my work and personal projects.",
+      "author": "Alex Johnson, Product Manager"
+    },
+    "testimonial2": {
+      "quote": "The AI task generation is like having a personal assistant that knows exactly what I need to do.",
+      "author": "Sarah Chen, Entrepreneur"
+    },
+    "testimonial3": {
+      "quote": "I've tried many task management apps, but TapqyrAI is by far the most intuitive and helpful.",
+      "author": "Michael Rodriguez, Student"
+    }
+  },
+  "cta": {
+    "title": "Ready to Get Organized?",
+    "subtitle": "Start managing your tasks with AI today",
+    "button": "Try TapqyrAI Now"
+  }
+} 
