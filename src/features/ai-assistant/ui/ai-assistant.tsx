@@ -284,11 +284,11 @@ export function AIAssistant() {
     <>
       {/* Toggle button - always visible when assistant is closed */}
       {!isOpen && (
-        <motion.div {...animations.scale}>
+        <motion.div {...animations.scale} className="fixed left-4 bottom-4 z-50">
           <Button
             variant="outline"
             size="icon"
-            className="fixed right-4 bottom-4 z-50 rounded-full shadow-md bg-background/80 backdrop-blur-sm hover:bg-primary/10"
+            className="rounded-full shadow-md bg-background/80 backdrop-blur-sm hover:bg-primary/10"
             onClick={toggleOpen}
             aria-label="Open AI Assistant"
           >
@@ -301,16 +301,20 @@ export function AIAssistant() {
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
+            initial={isDesktop ? { opacity: 0, x: -20 } : { opacity: 0, y: 20 }}
+            animate={isDesktop ? { opacity: 1, x: 0 } : { opacity: 1, y: 0 }}
+            exit={isDesktop ? { opacity: 0, x: -20 } : { opacity: 0, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             className={cn(
               "fixed z-50 shadow-lg border bg-background/95 backdrop-blur-md",
               isDesktop 
-                ? "right-4 bottom-4 h-[500px] w-[350px] rounded-lg"
+                ? "left-4 bottom-4 h-[calc(100vh-8rem)] max-h-[600px] w-[350px] rounded-lg"
                 : "inset-2 rounded-lg"
             )}
+            style={{ 
+              pointerEvents: 'auto',
+              touchAction: 'auto'
+            }}
           >
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b border-primary/10 bg-background/50">
@@ -391,7 +395,7 @@ export function AIAssistant() {
               )}
               
               {/* Input */}
-              <form onSubmit={handleSubmit} className="p-3 border-t">
+              <form onSubmit={handleSubmit} className="p-3 border-t mt-auto">
                 <div className="relative">
                   {isThinking && !isLoading && (
                     <div className="absolute -top-6 left-0 right-0 text-center">
