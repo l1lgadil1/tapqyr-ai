@@ -9,13 +9,13 @@ import {
   X, 
   SendHorizonal, 
   Loader2, 
-  Sparkles,
   Trash2,
   Settings,
-  MessageSquare,
   PanelLeftClose,
   PanelLeftOpen,
-  Globe
+  Globe,
+  Plus,
+  ListChecks
 } from 'lucide-react';
 import { cn, useIsDesktop, animations } from '../../../shared/lib/utils';
 import { useAIAssistantStore } from '../model';
@@ -678,40 +678,118 @@ export function AIAssistant({ className }: AIAssistantProps) {
             {isMinimized && (
               <motion.div 
                 className="flex flex-col items-center justify-between h-[calc(100%-64px)] py-4"
-                {...animations.fadeIn}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.2 }}
               >
                 <div className="flex flex-col items-center gap-4">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-10 w-10 rounded-full hover:bg-primary/10"
-                    onClick={toggleMinimize}
-                    aria-label="Expand AI Assistant"
+                  <motion.div
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.95 }}
                   >
-                    <PanelLeftOpen className="h-5 w-5 text-primary" />
-                  </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-10 w-10 rounded-full hover:bg-primary/10 relative"
+                      onClick={toggleMinimize}
+                      aria-label="Expand AI Assistant"
+                    >
+                      <PanelLeftOpen className="h-5 w-5 text-primary" />
+                      {messages.length > 0 && messages[messages.length - 1].isUser === false && (
+                        <motion.span 
+                          className="absolute -top-1 -right-1 h-3 w-3 bg-primary rounded-full"
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ 
+                            type: "spring", 
+                            stiffness: 500, 
+                            damping: 15 
+                          }}
+                        />
+                      )}
+                    </Button>
+                  </motion.div>
                   
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-10 w-10 rounded-full hover:bg-primary/10"
-                    onClick={toggleOpen}
-                    aria-label="Close AI Assistant"
+                  <motion.div
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.95 }}
                   >
-                    <X className="h-5 w-5" />
-                  </Button>
-                </div>
-                
-                <div className="rotate-90 whitespace-nowrap text-xs text-muted-foreground">
-                  AI Assistant
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-10 w-10 rounded-full hover:bg-primary/10"
+                      onClick={toggleOpen}
+                      aria-label="Close AI Assistant"
+                    >
+                      <X className="h-5 w-5" />
+                    </Button>
+                  </motion.div>
                 </div>
                 
                 <div className="flex flex-col items-center gap-2">
-                  <div className="relative">
-                    <Sparkles className="h-5 w-5 text-primary animate-pulse" />
-                    <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full animate-pulse-slow" />
-                  </div>
-                  <MessageSquare className="h-5 w-5 text-primary/70" />
+                  <motion.div
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-10 w-10 rounded-full bg-primary/5 hover:bg-primary/10"
+                      onClick={() => {
+                        toggleMinimize();
+                        setTimeout(() => {
+                          inputRef.current?.focus();
+                          setInput("Create a new task");
+                        }, 300);
+                      }}
+                      aria-label="Quick create task"
+                    >
+                      <Plus className="h-5 w-5 text-primary" />
+                    </Button>
+                  </motion.div>
+                  
+                  <motion.div
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-10 w-10 rounded-full bg-primary/5 hover:bg-primary/10"
+                      onClick={() => {
+                        toggleMinimize();
+                        setTimeout(() => {
+                          inputRef.current?.focus();
+                          setInput("List my tasks");
+                        }, 300);
+                      }}
+                      aria-label="Quick list tasks"
+                    >
+                      <ListChecks className="h-5 w-5 text-primary" />
+                    </Button>
+                  </motion.div>
+                </div>
+                
+                {/* Visual indicator for AI status */}
+                <div className="mt-2 flex flex-col items-center">
+                  {isLoading ? (
+                    <motion.div
+                      animate={{ 
+                        scale: [1, 1.2, 1],
+                        opacity: [0.5, 1, 0.5]
+                      }}
+                      transition={{ 
+                        repeat: Infinity, 
+                        duration: 1.5 
+                      }}
+                      className="h-3 w-3 bg-primary rounded-full"
+                    />
+                  ) : (
+                    <div className="h-3 w-3 bg-green-500 rounded-full" />
+                  )}
+                  <span className="text-xs text-muted-foreground mt-1">
+                    {isLoading ? "Thinking..." : "Ready"}
+                  </span>
                 </div>
               </motion.div>
             )}
