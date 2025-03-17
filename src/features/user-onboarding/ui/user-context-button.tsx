@@ -1,8 +1,8 @@
-import { FC, useEffect } from 'react';
+import { FC, useEffect, useState } from 'react';
 import { Button } from '../../../shared/ui/button';
 import { useUserOnboardingStore } from '../model/store';
 import { useUserContextModal } from '../model/use-user-context-modal';
-import { UserCircle, Settings } from 'lucide-react';
+import { UserCircle, Settings, Loader2 } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -24,10 +24,20 @@ export const UserContextButton: FC<UserContextButtonProps> = ({ className }) => 
     workDescription,
     shortTermGoals,
     longTermGoals,
-    otherContext
+    otherContext,
+    loadUserContext,
+    isLoading
   } = useUserOnboardingStore();
   
   const { openModal, canShowContextModal } = useUserContextModal();
+  const [isLoadingContext, setIsLoadingContext] = useState(false);
+  
+  // Load user context when component mounts if userId exists
+  useEffect(() => {
+    if (userId) {
+      loadUserContext();
+    }
+  }, [userId, loadUserContext]);
   
   // Debug logging
   useEffect(() => {
@@ -42,7 +52,7 @@ export const UserContextButton: FC<UserContextButtonProps> = ({ className }) => 
     });
   }, [userId, isOnboardingComplete, canShowContextModal, workDescription, shortTermGoals, longTermGoals, otherContext]);
   
-  const handleClick = () => {
+  const handleClick = async () => {
     console.log('UserContextButton clicked');
     console.log('Current state:', {
       userId,
@@ -56,6 +66,32 @@ export const UserContextButton: FC<UserContextButtonProps> = ({ className }) => 
       const tempEmail = `user_${Date.now()}@example.com`;
       console.log('Initializing user with email:', tempEmail);
       initializeUser(tempEmail);
+      return;
+    }
+    
+    // If we have a userId but need to check for context
+    if (userId && !canShowContextModal) {
+      setIsLoadingContext(true);
+      try {
+        // Try to load the user context first
+        await loadUserContext();
+        
+        // After loading, check if we can show the context modal
+        if (workDescription || shortTermGoals || longTermGoals || otherContext) {
+          console.log('Context loaded, opening context modal');
+          openModal();
+        } else {
+          // If still no context, open the onboarding modal
+          console.log('No context found, opening onboarding modal');
+          setOnboardingModalOpen(true);
+        }
+      } catch (error) {
+        console.error('Error loading user context:', error);
+        // If error, open the onboarding modal
+        setOnboardingModalOpen(true);
+      } finally {
+        setIsLoadingContext(false);
+      }
       return;
     }
     
@@ -85,8 +121,11 @@ export const UserContextButton: FC<UserContextButtonProps> = ({ className }) => 
               isOnboardingComplete && "hover:bg-primary/10"
             )}
             aria-label={isOnboardingComplete ? "View your context" : "Set up your context"}
+            disabled={isLoadingContext || isLoading}
           >
-            {isOnboardingComplete ? (
+            {isLoadingContext || isLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            ) : isOnboardingComplete ? (
               <>
                 <UserCircle className={cn(
                   "h-5 w-5 transition-all duration-300",
@@ -105,13 +144,15 @@ export const UserContextButton: FC<UserContextButtonProps> = ({ className }) => 
                 "group-hover:scale-110"
               )} />
             )}
-            {!isOnboardingComplete && (
+            {!isOnboardingComplete && !isLoadingContext && !isLoading && (
               <span className="absolute top-0 right-0 h-2 w-2 bg-destructive rounded-full" />
             )}
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="max-w-[250px]">
-          {isOnboardingComplete ? (
+          {isLoadingContext || isLoading ? (
+            <p className="font-medium">Loading context...</p>
+          ) : isOnboardingComplete ? (
             <>
               <p className="font-medium">AI Context Settings</p>
               <p className="text-xs text-muted-foreground mt-1">

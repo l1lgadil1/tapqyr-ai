@@ -5,6 +5,7 @@ import { useUserOnboardingStore } from '../model/store';
 import { Briefcase, Target, Compass, Info, Loader2, RefreshCw } from 'lucide-react';
 import { userApiService } from '../../../shared/api/api-service';
 import { UserContext } from '../../../shared/api/user-api';
+import './user-context-modal.css';
 
 interface UserContextModalProps {
   open: boolean;
@@ -157,10 +158,19 @@ export const UserContextModal: FC<UserContextModalProps> = ({
     console.log('UserContextModal: hasContext =', hasContext);
   }, [hasContext]);
 
-  if (!hasContext && !isLoading) {
-    console.log('UserContextModal: No context available, not rendering');
-    return null;
-  }
+  // If modal is open but we have no context and are not loading, close the modal
+  useEffect(() => {
+    if (open && !hasContext && !isLoading) {
+      console.log('UserContextModal: No context available, closing modal');
+      onOpenChange(false);
+      
+      // If user is logged in but has no context, open the onboarding modal
+      if (userId) {
+        console.log('UserContextModal: Opening onboarding modal instead');
+        setOnboardingModalOpen(true);
+      }
+    }
+  }, [open, hasContext, isLoading, userId, onOpenChange, setOnboardingModalOpen]);
 
   const handleEditClick = () => {
     console.log('UserContextModal: Edit button clicked');
@@ -175,7 +185,7 @@ export const UserContextModal: FC<UserContextModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto bg-background/80 backdrop-blur-md border border-primary/20">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold">Your Context</DialogTitle>
         </DialogHeader>
@@ -202,6 +212,18 @@ export const UserContextModal: FC<UserContextModalProps> = ({
                 Retry
               </Button>
             </div>
+          </div>
+        ) : !hasContext ? (
+          <div className="py-12 flex flex-col items-center justify-center">
+            <p className="text-sm text-muted-foreground">No context information available.</p>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleEditClick} 
+              className="mt-4"
+            >
+              Set Up Context
+            </Button>
           </div>
         ) : (
           <div className="py-4 space-y-6">
@@ -248,9 +270,11 @@ export const UserContextModal: FC<UserContextModalProps> = ({
         )}
         
         <DialogFooter>
-          <Button onClick={handleEditClick} className="w-full sm:w-auto">
-            Edit Context
-          </Button>
+          {hasContext && (
+            <Button onClick={handleEditClick} className="w-full sm:w-auto">
+              Edit Context
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

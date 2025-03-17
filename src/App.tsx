@@ -15,16 +15,26 @@ import { Toaster } from "./shared/ui/toaster";
 import { SplitLayout } from "./widgets/layout";
 
 function App() {
-  const { loadUserContext, userId, isOnboardingComplete } = useUserOnboardingStore();
+  const { loadUserContext, userId } = useUserOnboardingStore();
   const { isOpen, setIsOpen } = useUserContextModal();
   const { i18n } = useTranslation();
   
   // Load user context on mount if user ID exists
   useEffect(() => {
-    if (userId && !isOnboardingComplete) {
-      loadUserContext();
-    }
-  }, [userId, isOnboardingComplete, loadUserContext]);
+    const loadContext = async () => {
+      if (userId) {
+        console.log('App: Loading user context on mount');
+        try {
+          await loadUserContext();
+          console.log('App: User context loaded successfully');
+        } catch (error) {
+          console.error('App: Error loading user context:', error);
+        }
+      }
+    };
+    
+    loadContext();
+  }, [userId, loadUserContext]);
   
   if (!i18n.isInitialized) {
     return (

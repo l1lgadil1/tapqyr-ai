@@ -7,7 +7,15 @@ import { useUserOnboardingStore } from './store';
  */
 export const useUserContextModal = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { isOnboardingComplete, workDescription, shortTermGoals, longTermGoals, otherContext } = useUserOnboardingStore();
+  const { 
+    isOnboardingComplete, 
+    workDescription, 
+    shortTermGoals, 
+    longTermGoals, 
+    otherContext,
+    userId,
+    loadUserContext
+  } = useUserOnboardingStore();
   
   // Check if user has any context data
   const hasContext = !!(workDescription || shortTermGoals || longTermGoals || otherContext);
@@ -28,12 +36,47 @@ export const useUserContextModal = () => {
     });
   }, [isOnboardingComplete, hasContext, canShowContextModal, workDescription, shortTermGoals, longTermGoals, otherContext]);
   
-  const openModal = useCallback(() => {
+  // Refresh context data when modal is opened
+  useEffect(() => {
+    if (isOpen && userId) {
+      console.log('useUserContextModal: Modal opened, refreshing context data');
+      loadUserContext().catch(error => {
+        console.error('Error loading user context in modal:', error);
+      });
+    }
+  }, [isOpen, userId, loadUserContext]);
+  
+  // Close modal if context becomes unavailable
+  useEffect(() => {
+    if (isOpen && !canShowContextModal) {
+      console.log('useUserContextModal: Context no longer available, closing modal');
+      setIsOpen(false);
+    }
+  }, [isOpen, canShowContextModal]);
+  
+  const openModal = useCallback(async () => {
     console.log('openModal called, canShowContextModal =', canShowContextModal);
-    if (canShowContextModal) {
+    
+    if (userId) {
+      try {
+        // Refresh context data before opening modal
+        await loadUserContext();
+        
+        // Check again if we can show the modal after refreshing data
+        if (isOnboardingComplete && (workDescription || shortTermGoals || longTermGoals || otherContext)) {
+          console.log('useUserContextModal: Context available, opening modal');
+          setIsOpen(true);
+        } else {
+          console.log('useUserContextModal: No context available after refresh');
+        }
+      } catch (error) {
+        console.error('Error loading context before opening modal:', error);
+      }
+    } else if (canShowContextModal) {
+      // If no userId but we have context data locally
       setIsOpen(true);
     }
-  }, [canShowContextModal]);
+  }, [canShowContextModal, userId, loadUserContext, isOnboardingComplete, workDescription, shortTermGoals, longTermGoals, otherContext]);
   
   const closeModal = useCallback(() => {
     console.log('closeModal called');
@@ -45,6 +88,7 @@ export const useUserContextModal = () => {
     setIsOpen,
     openModal,
     closeModal,
-    canShowContextModal
+    canShowContextModal,
+    hasContext
   };
 }; 
