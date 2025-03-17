@@ -5,20 +5,8 @@ import { Button } from '../../../shared/ui/button';
 import { Trash2, Edit, Clock, AlertTriangle, CheckCircle2, BrainCircuit } from 'lucide-react';
 import { cn } from '../../../shared/lib/utils';
 import { CustomTooltip } from '../../../shared/ui/custom-tooltip';
-
-export interface TodoItemProps {
-  id: string;
-  title: string;
-  description?: string;
-  completed: boolean;
-  dueDate?: Date;
-  priority?: 'low' | 'medium' | 'high';
-  isAIGenerated?: boolean;
-  onToggle: (id: string, completed: boolean) => void;
-  onDelete: (id: string) => void;
-  onEdit: (id: string) => void;
-  className?: string;
-}
+import { TodoItemProps } from '../../../widgets/todo-list/types';
+import { TodoSkeleton } from '../../../shared/ui/skeleton';
 
 export function TodoItem({
   id,
@@ -28,6 +16,7 @@ export function TodoItem({
   dueDate,
   priority = 'medium',
   isAIGenerated,
+  isUpdating = false,
   onToggle,
   onDelete,
   onEdit,
@@ -35,6 +24,14 @@ export function TodoItem({
 }: TodoItemProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Ensure completed is always a boolean
+  const isCompleted = typeof completed === 'string' ? completed === 'true' : Boolean(completed);
+  
+  // If the item is updating, show a skeleton
+  if (isUpdating) {
+    return <TodoSkeleton compact={false} />;
+  }
   
   const priorityColors = {
     low: {
@@ -61,7 +58,7 @@ export function TodoItem({
   };
   
   const handleToggle = () => {
-    onToggle(id, !completed);
+    onToggle(id);
   };
   
   const handleDelete = () => {
@@ -72,7 +69,8 @@ export function TodoItem({
     }, 300);
   };
   
-  const formatDate = (date: Date) => {
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
     return new Intl.DateTimeFormat('en-US', {
       month: 'short',
       day: 'numeric',
@@ -83,13 +81,13 @@ export function TodoItem({
   
   // Check if due date is today or overdue
   const isDueToday = dueDate ? new Date(dueDate).toDateString() === new Date().toDateString() : false;
-  const isOverdue = dueDate ? new Date(dueDate) < new Date() && !completed : false;
+  const isOverdue = dueDate ? new Date(dueDate) < new Date() && !isCompleted : false;
   
   return (
     <motion.div
       className={cn(
         'relative p-4 rounded-lg neon-border scan-effect',
-        completed ? 'bg-secondary/10' : isOverdue ? 'bg-red-500/5' : 'holographic-card',
+        isCompleted ? 'bg-secondary/10' : isOverdue ? 'bg-red-500/5' : 'holographic-card',
         isDeleting && 'scale-95 opacity-0',
         className
       )}
@@ -113,16 +111,16 @@ export function TodoItem({
       
       <div className="flex items-start gap-3 relative z-10">
         <div className="flex-shrink-0 pt-0.5">
-          <CustomTooltip content={completed ? "Mark as incomplete" : "Mark as complete"}>
+          <CustomTooltip content={isCompleted ? "Mark as incomplete" : "Mark as complete"}>
             <Checkbox 
-              checked={completed} 
+              checked={isCompleted} 
               onCheckedChange={handleToggle}
               className={cn(
                 "transition-all duration-300 border-2 relative overflow-hidden",
-                completed ? "border-primary" : "border-primary/50",
-                isHovered && !completed && "animate-pulse-glow"
+                isCompleted ? "border-primary" : "border-primary/50",
+                isHovered && !isCompleted && "animate-pulse-glow"
               )}
-              aria-label={completed ? "Mark as incomplete" : "Mark as complete"}
+              aria-label={isCompleted ? "Mark as incomplete" : "Mark as complete"}
             />
           </CustomTooltip>
         </div>
@@ -132,7 +130,7 @@ export function TodoItem({
             <h3 
               className={cn(
                 "text-base font-medium transition-all duration-300",
-                completed ? "line-through opacity-70" : "neon-text"
+                isCompleted ? "line-through opacity-70" : "neon-text"
               )}
             >
               {title}
@@ -171,9 +169,9 @@ export function TodoItem({
             <motion.p 
               className={cn(
                 "text-sm text-muted-foreground mb-2",
-                completed && "opacity-50"
+                isCompleted && "opacity-50"
               )}
-              animate={{ opacity: completed ? 0.5 : 1 }}
+              animate={{ opacity: isCompleted ? 0.5 : 1 }}
             >
               {description}
             </motion.p>
@@ -182,14 +180,14 @@ export function TodoItem({
           {dueDate && (
             <div className={cn(
               "flex items-center text-xs gap-1 mt-2 px-2 py-1 rounded-md backdrop-blur-sm w-fit",
-              isOverdue && !completed ? "bg-red-500/10 text-red-400" : 
-              isDueToday && !completed ? "bg-amber-500/10 text-amber-400" : 
+              isOverdue && !isCompleted ? "bg-red-500/10 text-red-400" : 
+              isDueToday && !isCompleted ? "bg-amber-500/10 text-amber-400" : 
               "bg-background/30 text-muted-foreground"
             )}>
               <Clock className="h-3 w-3" />
-              <span>{formatDate(dueDate)}</span>
-              {isOverdue && !completed && <span className="text-red-400 font-medium ml-1">Overdue</span>}
-              {isDueToday && !completed && !isOverdue && <span className="text-amber-400 font-medium ml-1">Today</span>}
+              <span>{dueDate ? formatDate(dueDate) : ''}</span>
+              {isOverdue && !isCompleted && <span className="text-red-400 font-medium ml-1">Overdue</span>}
+              {isDueToday && !isCompleted && !isOverdue && <span className="text-amber-400 font-medium ml-1">Today</span>}
             </div>
           )}
         </div>
@@ -228,15 +226,15 @@ export function TodoItem({
       <motion.div 
         className={cn(
           "absolute bottom-0 left-0 h-1",
-          completed ? "bg-gradient-to-r from-primary to-accent" : 
+          isCompleted ? "bg-gradient-to-r from-primary to-accent" : 
           isOverdue ? "bg-gradient-to-r from-red-500 to-red-400" :
           "bg-gradient-to-r from-primary/50 to-accent/50"
         )}
-        initial={{ width: completed ? "100%" : "0%" }}
-        animate={{ width: completed ? "100%" : "0%" }}
+        initial={{ width: isCompleted ? "100%" : "0%" }}
+        animate={{ width: isCompleted ? "100%" : "0%" }}
         transition={{ duration: 0.5 }}
         style={{
-          boxShadow: completed ? '0 0 10px -2px hsl(var(--primary))' : 'none'
+          boxShadow: isCompleted ? '0 0 10px -2px hsl(var(--primary))' : 'none'
         }}
       />
     </motion.div>

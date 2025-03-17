@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '../../../shared/ui/button';
 import { Input } from '../../../shared/ui/input';
@@ -7,15 +7,30 @@ import { Label } from '../../../shared/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../shared/ui/select';
 import { Calendar, AlertTriangle, Clock, CheckCircle2 } from 'lucide-react';
 import { cn } from '../../../shared/lib/utils';
-import { Todo } from '../../../widgets/todo-list';
+import { TodoItem } from '../../../widgets/todo-list/types';
 import { useTranslation } from '../../../shared/lib/i18n';
+import { z } from 'zod';
 
 interface TodoFormProps {
-  todo?: Todo | null;
-  onSubmit: (todo: Omit<Todo, 'id' | 'createdAt'>) => void;
+  todo?: TodoItem | null;
+  onSubmit: (todo: Omit<TodoItem, 'id' | 'createdAt'>) => void;
   onCancel: () => void;
   className?: string;
 }
+
+// Define validation schema
+const todoSchema = z.object({
+  title: z.string().min(1, 'Title is required').max(100, 'Title is too long'),
+  description: z.string().max(500, 'Description is too long').optional(),
+  priority: z.enum(['low', 'medium', 'high']),
+  dueDate: z.string().optional(),
+});
+
+type FormErrors = {
+  title?: string;
+  description?: string;
+  dueDate?: string;
+};
 
 export function TodoForm({
   todo,
@@ -28,7 +43,7 @@ export function TodoForm({
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
   const [dueDate, setDueDate] = useState<string>('');
-  const [titleError, setTitleError] = useState('');
+  const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Initialize form with todo data if provided
@@ -45,18 +60,30 @@ export function TodoForm({
     }
   }, [todo]);
   
-  const validateForm = (): boolean => {
-    // Reset errors
-    setTitleError('');
-    
-    // Validate title
-    if (!title.trim()) {
-      setTitleError(t('form.titleRequired'));
+  const validateForm = useCallback((): boolean => {
+    try {
+      todoSchema.parse({
+        title,
+        description,
+        priority,
+        dueDate,
+      });
+      setErrors({});
+      return true;
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const newErrors: FormErrors = {};
+        error.errors.forEach((err) => {
+          const path = err.path[0];
+          if (path && typeof path === 'string') {
+            newErrors[path as keyof FormErrors] = err.message;
+          }
+        });
+        setErrors(newErrors);
+      }
       return false;
     }
-    
-    return true;
-  };
+  }, [title, description, priority, dueDate]);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,12 +93,16 @@ export function TodoForm({
     try {
       setIsSubmitting(true);
       
+      // Handle dueDate properly
+      const formattedDueDate = dueDate ? dueDate : undefined;
+      
       await onSubmit({
         title,
         description,
-        priority,
-        dueDate: dueDate ? new Date(dueDate) : undefined,
         completed: todo?.completed || false,
+        dueDate: formattedDueDate,
+        priority,
+        isAIGenerated: todo?.isAIGenerated || false
       });
       
       // Reset form if not editing
@@ -80,9 +111,13 @@ export function TodoForm({
         setDescription('');
         setPriority('medium');
         setDueDate('');
+        setErrors({});
       }
     } catch (error) {
       console.error('Error submitting todo:', error);
+      setErrors({
+        title: t('form.submitError'),
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -112,26 +147,26 @@ export function TodoForm({
             value={title}
             onChange={(e) => {
               setTitle(e.target.value);
-              if (e.target.value.trim()) setTitleError('');
+              if (e.target.value.trim()) setErrors({});
             }}
             placeholder={t('form.titlePlaceholder')}
             required
             className={cn(
               "w-full bg-background/50 border-primary/20 focus:border-primary/40 transition-all",
-              titleError && "border-red-500 focus:border-red-500"
+              errors.title && "border-red-500 focus:border-red-500"
             )}
-            aria-invalid={!!titleError}
-            aria-describedby={titleError ? "title-error" : undefined}
+            aria-invalid={!!errors.title}
+            aria-describedby={errors.title ? "title-error" : undefined}
           />
-          {titleError && (
+          {errors.title && (
             <motion.p 
               id="title-error"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              className="text-sm text-red-500 mt-1 flex items-center"
+              className="text-red-500 text-sm mt-1 flex items-center"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
             >
               <AlertTriangle className="h-3 w-3 mr-1" />
-              {titleError}
+              {errors.title}
             </motion.p>
           )}
         </div>

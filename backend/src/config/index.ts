@@ -18,6 +18,10 @@ interface Config {
   logging: {
     level: string;
   };
+  jwt: {
+    accessTokenSecret: string;
+    refreshTokenSecret: string;
+  };
 }
 
 const config: Config = {
@@ -34,11 +38,25 @@ const config: Config = {
   logging: {
     level: process.env.LOG_LEVEL || 'info',
   },
+  jwt: {
+    accessTokenSecret: process.env.JWT_ACCESS_TOKEN_SECRET || 'access_token_secret',
+    refreshTokenSecret: process.env.JWT_REFRESH_TOKEN_SECRET || 'refresh_token_secret',
+  },
 };
 
 // Validate required configuration
 if (!config.openai.apiKey) {
   throw new Error('OPENAI_API_KEY is required');
+}
+
+// In production, ensure JWT secrets are set
+if (config.nodeEnv === 'production') {
+  if (config.jwt.accessTokenSecret === 'access_token_secret') {
+    throw new Error('JWT_ACCESS_TOKEN_SECRET must be set in production');
+  }
+  if (config.jwt.refreshTokenSecret === 'refresh_token_secret') {
+    throw new Error('JWT_REFRESH_TOKEN_SECRET must be set in production');
+  }
 }
 
 export default config; 

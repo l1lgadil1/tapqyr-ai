@@ -22,5 +22,48 @@ model Todo {
   userId        String?   // For future authentication implementation
   isAIGenerated Boolean   @default(false)
 
+  user User? @relation(fields: [userId], references: [id])
+
   @@map("todos")
+}
+
+// User model definition
+model User {
+  id                String    @id @default(uuid())
+  email             String    @unique
+  name              String?
+  password          String    // Hashed password
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // Authentication fields
+  isEmailVerified   Boolean   @default(false)
+  verificationToken String?
+  resetPasswordToken String?
+  resetPasswordExpires DateTime?
+  lastLogin         DateTime?
+  
+  // User context fields
+  workDescription   String?
+  shortTermGoals    String?
+  longTermGoals     String?
+  otherContext      String?
+  onboardingComplete Boolean  @default(false)
+  
+  // Refresh token for JWT authentication
+  refreshToken      String?
+  
+  todos             Todo[]
+
+  @@map("users")
+}
+
+// BlacklistedToken model for storing invalidated JWT tokens
+model BlacklistedToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("blacklisted_tokens")
 }

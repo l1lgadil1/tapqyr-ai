@@ -1,0 +1,48 @@
+{
+  "modal": {
+    "steps": {
+      "work": {
+        "title": "What do you do?",
+        "description": "Describe your work or activities. This helps our AI assistant understand your context better.",
+        "placeholder": "I am a programmer who wants to become an entrepreneur. Currently testing different ideas..."
+      },
+      "shortTerm": {
+        "title": "Short-term goals",
+        "description": "What are your short-term goals? This helps our AI assistant provide more relevant suggestions.",
+        "placeholder": "AI agents, reach $10k/month, create a business with minimum $1000/month income..."
+      },
+      "longTerm": {
+        "title": "Long-term goals",
+        "description": "What are your long-term goals? This helps our AI assistant align with your vision.",
+        "placeholder": "Income of $10k/month, financial freedom..."
+      },
+      "other": {
+        "title": "Any other context?",
+        "description": "Is there anything else you want our AI assistant to know about you?",
+        "placeholder": "Additional information that might be helpful..."
+      }
+    },
+    "buttons": {
+      "back": "Back",
+      "next": "Next",
+      "complete": "Complete",
+      "saving": "Saving..."
+    },
+    "alerts": {
+      "exitTitle": "Are you sure you want to exit?",
+      "exitDescription": "Your profile setup is not complete. The AI assistant works best with complete information about your context and goals.",
+      "exitCancel": "Cancel",
+      "exitConfirm": "Exit anyway"
+    },
+    "toasts": {
+      "complete": {
+        "title": "Profile setup complete!",
+        "description": "You can always update your information in the user settings."
+      },
+      "postponed": {
+        "title": "Setup postponed",
+        "description": "You can complete your profile setup anytime in the user settings."
+      }
+    }
+  }
+} 

@@ -55,5 +55,59 @@
   "language": {
     "en": "English",
     "ru": "Russian"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error occurred",
+    "success": "Success"
+  },
+  "auth": {
+    "email": "Email",
+    "emailPlaceholder": "your.email@example.com",
+    "password": "Password",
+    "passwordPlaceholder": "••••••••",
+    "confirmPassword": "Confirm Password",
+    "name": "Name",
+    "namePlaceholder": "Your name",
+    "forgotPassword": "Forgot Password?",
+    "logout": "Log Out",
+    "login": {
+      "title": "Log In",
+      "description": "Enter your credentials to access your account",
+      "action": "Log In",
+      "noAccount": "Don't have an account?",
+      "pageTitle": "Log In | TapqyrAI",
+      "pageDescription": "Log in to your TapqyrAI account",
+      "returnToLogin": "Return to Login",
+      "or": "OR"
+    },
+    "register": {
+      "title": "Create an Account",
+      "description": "Fill in your details to create a new account",
+      "action": "Sign Up",
+      "haveAccount": "Already have an account?",
+      "pageTitle": "Sign Up | TapqyrAI",
+      "pageDescription": "Create a new TapqyrAI account",
+      "passwordMismatch": "Passwords do not match",
+      "passwordTooShort": "Password must be at least 8 characters long",
+      "or": "OR"
+    },
+    "forgotPassword": {
+      "title": "Forgot Password",
+      "description": "Enter your email to receive a password reset link",
+      "action": "Send Reset Link",
+      "rememberPassword": "Remember your password?",
+      "pageTitle": "Forgot Password | TapqyrAI",
+      "pageDescription": "Reset your TapqyrAI account password",
+      "error": "Failed to send reset link",
+      "successTitle": "Reset Link Sent",
+      "successDescription": "Check your email for further instructions",
+      "successMessage": "We've sent a password reset link to {{email}}. Please check your inbox and follow the instructions to reset your password."
+    }
+  },
+  "nav": {
+    "todo": "My Tasks",
+    "profile": "Profile",
+    "settings": "Settings"
   }
 } 

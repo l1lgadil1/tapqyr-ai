@@ -6,7 +6,7 @@
   "upcomingTasks": "Upcoming Tasks",
   "highPriority": "High Priority",
   "aiGenerate": "AI Task Generator",
-  "aiAssistant": "AI Assistant",
+  "aiAssistant": "Tapqyr AI",
   "loading": "Loading...",
   "noTasksForToday": "No tasks due today",
   "addTasksForToday": "Add tasks with today's due date to see them here",
@@ -39,7 +39,11 @@
     "highPriorityTasks": "High Priority Tasks",
     "dueToday": "Due Today",
     "requiresAttention": "Requires immediate attention",
-    "upcomingDays": "Upcoming (7 days)"
+    "upcomingDays": "Upcoming (7 days)",
+    "clickToViewAll": "Click to view all tasks",
+    "clickToViewCompleted": "Click to view completed tasks",
+    "clickToViewToday": "Click to view today's tasks",
+    "clickToViewHighPriority": "Click to view high priority tasks"
   },
   "ai": {
     "prompt": "What would you like to accomplish?",
@@ -108,6 +112,9 @@
     "activeCount": "active",
     "completedCount": "completed",
     "aiGeneratedCount": "AI generated",
+    "highPriorityCount": "high priority",
+    "mediumPriorityCount": "medium priority",
+    "lowPriorityCount": "low priority",
     "all": "All",
     "active": "Active",
     "completed": "Completed",
@@ -121,7 +128,7 @@
     "noActiveTasksAvailable": "No active tasks available",
     "noCompletedTasksAvailable": "No completed tasks available",
     "noAiTasksAvailable": "No AI tasks available",
-    "search": "Search",
+    "search": "Search...",
     "filters": "Filters",
     "clearFilters": "Clear Filters",
     "priorityFilter": "Priority Filter",
@@ -131,6 +138,18 @@
     "highPriority": "High Priority",
     "noMatchingTasks": "No matching tasks",
     "tryAdjustingFilters": "Try adjusting your filters or search criteria",
-    "noTasks": "No tasks"
+    "noTasks": "No tasks",
+    "loadMore": "Load more...",
+    "noTasksDescription": "Try adjusting your filters or add a new task",
+    "showing": "Showing",
+    "of": "of",
+    "items": "items"
+  },
+  "dateGroups": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "thisWeek": "This Week",
+    "thisMonth": "This Month",
+    "older": "Older"
   }
 } 

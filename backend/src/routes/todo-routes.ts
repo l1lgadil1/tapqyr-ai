@@ -7,6 +7,15 @@ const todoController = new TodoController();
 // Get all todos
 todoRouter.get('/', todoController.getAllTodos);
 
+// Get today's todos
+todoRouter.get('/today', todoController.getTodayTodos);
+
+// Get upcoming todos
+todoRouter.get('/upcoming', todoController.getUpcomingTodos);
+
+// Get dashboard stats
+todoRouter.get('/dashboard', todoController.getDashboardStats);
+
 // Get a todo by ID
 todoRouter.get('/:id', todoController.getTodoById);
 
@@ -22,7 +31,7 @@ todoRouter.delete('/:id', todoController.deleteTodo);
 // Toggle todo completion status
 todoRouter.patch('/:id/toggle', todoController.toggleTodoCompletion);
 
-// Generate AI todos
-todoRouter.post('/ai/generate', todoController.generateAITodos);
+// Generate todos from prompt
+todoRouter.post('/generate', todoController.generateTodos);
 
 export default todoRouter; 

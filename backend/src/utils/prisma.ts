@@ -32,10 +32,11 @@ if (process.env.NODE_ENV === 'development') {
     logger.debug(`Query: ${e.query}`);
     logger.debug(`Duration: ${e.duration}ms`);
   });
-  
-  prisma.$on('error', (e) => {
-    logger.error(`Prisma Error: ${e.message}`);
-  });
 }
+
+// Log errors
+prisma.$on('error', (e) => {
+  logger.error(`Prisma Error: ${e.message}`);
+});
 
 export default prisma; 

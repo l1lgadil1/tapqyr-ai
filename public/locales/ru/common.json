@@ -55,5 +55,59 @@
   "language": {
     "en": "Английский",
     "ru": "Русский"
+  },
+  "common": {
+    "loading": "Загрузка...",
+    "error": "Произошла ошибка",
+    "success": "Успешно"
+  },
+  "auth": {
+    "email": "Электронная почта",
+    "emailPlaceholder": "ваша.почта@example.com",
+    "password": "Пароль",
+    "passwordPlaceholder": "••••••••",
+    "confirmPassword": "Подтвердите пароль",
+    "name": "Имя",
+    "namePlaceholder": "Ваше имя",
+    "forgotPassword": "Забыли пароль?",
+    "logout": "Выйти",
+    "login": {
+      "title": "Вход",
+      "description": "Введите свои данные для входа в аккаунт",
+      "action": "Войти",
+      "noAccount": "Нет аккаунта?",
+      "pageTitle": "Вход | TapqyrAI",
+      "pageDescription": "Войдите в свой аккаунт TapqyrAI",
+      "returnToLogin": "Вернуться к входу",
+      "or": "ИЛИ"
+    },
+    "register": {
+      "title": "Создать аккаунт",
+      "description": "Заполните данные для создания нового аккаунта",
+      "action": "Зарегистрироваться",
+      "haveAccount": "Уже есть аккаунт?",
+      "pageTitle": "Регистрация | TapqyrAI",
+      "pageDescription": "Создайте новый аккаунт TapqyrAI",
+      "passwordMismatch": "Пароли не совпадают",
+      "passwordTooShort": "Пароль должен содержать не менее 8 символов",
+      "or": "ИЛИ"
+    },
+    "forgotPassword": {
+      "title": "Восстановление пароля",
+      "description": "Введите вашу электронную почту для получения ссылки на сброс пароля",
+      "action": "Отправить ссылку",
+      "rememberPassword": "Вспомнили пароль?",
+      "pageTitle": "Восстановление пароля | TapqyrAI",
+      "pageDescription": "Сбросьте пароль вашего аккаунта TapqyrAI",
+      "error": "Не удалось отправить ссылку для сброса",
+      "successTitle": "Ссылка отправлена",
+      "successDescription": "Проверьте вашу почту для дальнейших инструкций",
+      "successMessage": "Мы отправили ссылку для сброса пароля на {{email}}. Пожалуйста, проверьте вашу почту и следуйте инструкциям для сброса пароля."
+    }
+  },
+  "nav": {
+    "todo": "Мои задачи",
+    "profile": "Профиль",
+    "settings": "Настройки"
   }
 } 

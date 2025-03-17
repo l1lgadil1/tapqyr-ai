@@ -10,7 +10,7 @@ const logFormat = printf(({ level, message, timestamp }) => {
 
 // Create logger instance
 const logger = winston.createLogger({
-  level: config.logging.level,
+  level: config.logLevel,
   format: combine(
     timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
     logFormat
@@ -34,7 +34,7 @@ const logger = winston.createLogger({
 });
 
 // If we're not in production, log to the console with colors
-if (config.nodeEnv !== 'production') {
+if (config.env !== 'production') {
   logger.add(new winston.transports.Console({
     format: combine(
       colorize(),

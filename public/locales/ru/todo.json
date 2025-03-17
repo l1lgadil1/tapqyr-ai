@@ -6,7 +6,7 @@
   "upcomingTasks": "Предстоящие задачи",
   "highPriority": "Высокий приоритет",
   "aiGenerate": "Генератор задач ИИ",
-  "aiAssistant": "ИИ-ассистент",
+  "aiAssistant": "Tapqyr AI",
   "loading": "Загрузка...",
   "noTasksForToday": "Нет задач на сегодня",
   "addTasksForToday": "Добавьте задачи с сегодняшним сроком, чтобы увидеть их здесь",
@@ -39,7 +39,11 @@
     "highPriorityTasks": "Задачи с высоким приоритетом",
     "dueToday": "Срок сегодня",
     "requiresAttention": "Требует немедленного внимания",
-    "upcomingDays": "Предстоящие (7 дней)"
+    "upcomingDays": "Предстоящие (7 дней)",
+    "clickToViewAll": "Нажмите, чтобы просмотреть все задачи",
+    "clickToViewCompleted": "Нажмите, чтобы просмотреть завершенные задачи",
+    "clickToViewToday": "Нажмите, чтобы просмотреть задачи на сегодня",
+    "clickToViewHighPriority": "Нажмите, чтобы просмотреть задачи с высоким приоритетом"
   },
   "ai": {
     "prompt": "Что бы вы хотели достичь?",
@@ -108,6 +112,9 @@
     "activeCount": "активных",
     "completedCount": "завершенных",
     "aiGeneratedCount": "созданных ИИ",
+    "highPriorityCount": "высокий приоритет",
+    "mediumPriorityCount": "средний приоритет",
+    "lowPriorityCount": "низкий приоритет",
     "all": "Все",
     "active": "Активные",
     "completed": "Завершенные",
@@ -121,7 +128,7 @@
     "noActiveTasksAvailable": "Нет активных задач",
     "noCompletedTasksAvailable": "Нет завершенных задач",
     "noAiTasksAvailable": "Нет задач, созданных ИИ",
-    "search": "Поиск",
+    "search": "Поиск...",
     "filters": "Фильтры",
     "clearFilters": "Очистить фильтры",
     "priorityFilter": "Фильтр по приоритету",
@@ -131,6 +138,18 @@
     "highPriority": "Высокий приоритет",
     "noMatchingTasks": "Нет подходящих задач",
     "tryAdjustingFilters": "Попробуйте изменить фильтры или критерии поиска",
-    "noTasks": "Нет задач"
+    "noTasks": "Задачи не найдены",
+    "loadMore": "Загрузить еще...",
+    "noTasksDescription": "Попробуйте изменить фильтры или добавить новую задачу",
+    "showing": "Показано",
+    "of": "из",
+    "items": "элементов"
+  },
+  "dateGroups": {
+    "today": "Сегодня",
+    "yesterday": "Вчера",
+    "thisWeek": "На этой неделе",
+    "thisMonth": "В этом месяце",
+    "older": "Ранее"
   }
 } 

@@ -7,27 +7,25 @@ interface I18nProviderProps {
 }
 
 export function I18nProvider({ children }: I18nProviderProps) {
-  const [isI18nInitialized, setIsI18nInitialized] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Wait for i18n to be initialized
-    if (i18n.isInitialized) {
-      setIsI18nInitialized(true);
-    } else {
-      const handleInitialized = () => {
-        setIsI18nInitialized(true);
-      };
-      
-      i18n.on('initialized', handleInitialized);
-      
-      return () => {
-        i18n.off('initialized', handleInitialized);
-      };
-    }
+    const initializeI18n = async () => {
+      try {
+        if (!i18n.isInitialized) {
+          await i18n.init();
+        }
+      } catch (error) {
+        console.error('Failed to initialize i18n:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeI18n();
   }, []);
 
-  if (!isI18nInitialized) {
-    // Show a minimal loading state while i18n initializes
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
@@ -35,5 +33,9 @@ export function I18nProvider({ children }: I18nProviderProps) {
     );
   }
 
-  return <I18nextProvider i18n={i18n}>{children}</I18nextProvider>;
+  return (
+    <I18nextProvider i18n={i18n}>
+      {children}
+    </I18nextProvider>
+  );
 } 

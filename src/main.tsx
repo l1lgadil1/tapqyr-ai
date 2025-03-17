@@ -4,14 +4,23 @@ import { RouterProvider } from 'react-router-dom'
 import './index.css'
 import './shared/styles/tooltip.css'
 import { router } from './app/router'
-// Import i18n configuration
-import './shared/lib/i18n/i18n'
+import { I18nProvider } from './app/providers/i18n-provider'
 import { ErrorBoundary } from './shared/ui/error-boundary'
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <ErrorBoundary>
-      <RouterProvider router={router} />
-    </ErrorBoundary>
-  </StrictMode>,
-)
+// Initialize i18n and render the app
+const initializeApp = () => {
+  const root = createRoot(document.getElementById('root')!);
+  
+  root.render(
+    <StrictMode>
+      <ErrorBoundary>
+        <I18nProvider>
+          <RouterProvider router={router} />
+        </I18nProvider>
+      </ErrorBoundary>
+    </StrictMode>
+  );
+};
+
+// Start the application
+initializeApp();
