@@ -5,7 +5,7 @@ import { LoginPage, RegisterPage, ForgotPasswordPage } from '../../pages/auth';
 import DebugPage from '../../pages/debug-page';
 import App from '../../App';
 import { ErrorElement } from '../../shared/ui/error-element';
-import { TodoPage } from '../../pages/todo-page';
+import { TasksPage, TodoPage } from '../../pages/todo-page';
 
 export const router = createBrowserRouter([
   {
@@ -24,7 +24,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'todo',
-        element: <TodoPage />,
+        element: <TasksPage />,
         errorElement: <ErrorElement />
       },
       {
