@@ -7,9 +7,8 @@ export { TasksListLayout } from './ui/tasks-list-layout';
 export { TasksSearch } from './ui/tasks-search';
 export { TasksSort } from './ui/tasks-sort';
 export { TasksFilter } from './ui/tasks-filter';
+export { FloatingActionButton } from './ui/floating-action-button';
 
-// Export examples
-export { TasksListNextExample } from './example-next-app';
 
 // Export API
 export { tasksApi } from './model/api';
