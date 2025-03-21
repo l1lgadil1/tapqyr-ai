@@ -97,17 +97,21 @@ export function useTasksFilters({
 
   // Handle search clear
   const handleSearchClear = useCallback(() => {
+    // Use empty string instead of undefined to ensure value is properly reset
     setSearch('', { history: 'push' });
+    
     if (onFilter && !isInitialMount.current) {
       const filterParams: TaskFetchParams = {
         sortBy,
         offset: 0
       };
       
+      // Don't include search parameter at all when cleared
       if (statusFilter !== 'all') filterParams.status = statusFilter;
       if (priorityFilter !== 'all') filterParams.priority = priorityFilter;
       
-      onFilter(filterParams);
+      // temporary solution
+      onFilter({...filterParams,search:''});
     }
   }, [onFilter, statusFilter, priorityFilter, sortBy, setSearch]);
 
@@ -202,7 +206,7 @@ export function useTasksFilters({
       let filtered = [...tasks];
 
       // Apply search filter
-      if (search) {
+      if (search && search.trim() !== '') {
         const searchLower = search.toLowerCase();
         filtered = filtered.filter(task => 
           task.title.toLowerCase().includes(searchLower) || 

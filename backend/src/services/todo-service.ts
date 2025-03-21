@@ -66,9 +66,21 @@ export class TodoService {
       
       // Add search filter if provided
       if (search && search.trim() !== '') {
+        // Don't lowercase the search term since SQLite's comparison might be case-sensitive
+        // for non-ASCII characters like Cyrillic
+        const searchTerm = search.trim();
+        
+        // Use a more flexible search approach with multiple conditions
         where.OR = [
-          { title: { contains: search, mode: 'insensitive' } },
-          { description: { contains: search, mode: 'insensitive' } }
+          // Case sensitive exact match
+          { title: { contains: searchTerm } },
+          { description: { contains: searchTerm } },
+          // Lowercase match
+          { title: { contains: searchTerm.toLowerCase() } },
+          { description: { contains: searchTerm.toLowerCase() } },
+          // Uppercase match
+          { title: { contains: searchTerm.toUpperCase() } },
+          { description: { contains: searchTerm.toUpperCase() } }
         ];
       }
       

@@ -2,7 +2,7 @@
 
 import { TodoItem } from '../../../widgets/todo-list/types';
 import { Card, CardContent, CardHeader } from '../../../shared/ui/card';
-import { CheckCircle, Clock, AlertTriangle, Search, Filter } from 'lucide-react';
+import { CheckCircle, Clock, AlertTriangle, Search, Filter, X } from 'lucide-react';
 import { useTranslation } from '../../../shared/lib/i18n';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -10,6 +10,7 @@ import { useInView } from 'react-intersection-observer';
 import { useEffect, useState } from 'react';
 import { Input } from '../../../shared/ui/input';
 import { Button } from '../../../shared/ui/button';
+import { useDebouncedCallback } from '../../../shared/hooks/useDebounce';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -63,6 +64,19 @@ export function DashboardTodoList({
   const [showFilters, setShowFilters] = useState(false);
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
   
+  // Debounced search callback
+  const [debouncedSearchChange] = useDebouncedCallback<(query: string) => void>((query: string) => {
+    if (!onSearchChange) return;
+    
+    try {
+      // If search is empty or only whitespace, pass empty string
+      const trimmedQuery = (query || '').trim();
+      onSearchChange(trimmedQuery);
+    } catch (error) {
+      console.error('Error in search handler:', error);
+    }
+  }, 500);
+  
   // Set up intersection observer for infinite scrolling with more conservative settings
   const { ref, inView } = useInView({
     threshold: 0.5, // Increase threshold to require more visibility
@@ -76,27 +90,19 @@ export function DashboardTodoList({
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setLocalSearchQuery(value);
+    debouncedSearchChange(value);
   };
   
-  // Debounce search with useEffect
+  // Handle search clear
+  const handleSearchClear = () => {
+    setLocalSearchQuery('');
+    debouncedSearchChange('');
+  };
+  
+  // Update local search query when prop changes
   useEffect(() => {
-    if (!onSearchChange) return;
-    
-    const timer = setTimeout(() => {
-      // Only trigger search if the query has actually changed
-      if (localSearchQuery !== searchQuery) {
-        try {
-          // If search is empty or only whitespace, pass empty string
-          const trimmedQuery = (localSearchQuery || '').trim();
-          onSearchChange(trimmedQuery);
-        } catch (error) {
-          console.error('Error in search handler:', error);
-        }
-      }
-    }, 500);
-    
-    return () => clearTimeout(timer);
-  }, [localSearchQuery, searchQuery, onSearchChange]);
+    setLocalSearchQuery(searchQuery);
+  }, [searchQuery]);
   
   // Load more todos when the user scrolls to the bottom - with debounce
   useEffect(() => {
@@ -109,11 +115,6 @@ export function DashboardTodoList({
     
     return () => clearTimeout(timer);
   }, [inView, hasMore, onLoadMore, isLoading]);
-  
-  // Update local search query when prop changes
-  useEffect(() => {
-    setLocalSearchQuery(searchQuery);
-  }, [searchQuery]);
 
   // Loading state
   if (isLoading && !todos.length) {
@@ -158,7 +159,24 @@ export function DashboardTodoList({
             className="pl-8"
             value={localSearchQuery}
             onChange={handleSearchChange}
+            // Add clear functionality when pressing Escape key
+            onKeyDown={(e) => {
+              if (e.key === 'Escape' && localSearchQuery) {
+                handleSearchClear();
+              }
+            }}
           />
+          {localSearchQuery && (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 p-0 hover:bg-transparent" 
+              onClick={handleSearchClear}
+            >
+              <span className="sr-only">{t('clear', { defaultValue: 'Clear' })}</span>
+              <X className="h-3 w-3" />
+            </Button>
+          )}
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

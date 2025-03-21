@@ -63,7 +63,7 @@ export function TasksFilter({
         </SelectContent>
       </Select>
 
-      {hasActiveFilters && (
+      {/* {hasActiveFilters && (
         <Button
           variant="outline"
           size="sm"
@@ -76,7 +76,7 @@ export function TasksFilter({
             {(statusFilter !== 'all' ? 1 : 0) + (priorityFilter !== 'all' ? 1 : 0)}
           </Badge>
         </Button>
-      )}
+      )} */}
     </div>
   );
 } 
