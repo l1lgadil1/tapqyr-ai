@@ -60,8 +60,8 @@ export function TasksList({ className }: TasksListProps = {}) {
         initialParams: {
             // Only include search if it's not empty
             ...(search ? { search } : {}),
-            // Only include status filter if it's not 'all'
-            ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
+            // Include status filter by default with 'active'
+            status: statusFilter,
             // Only include priority if it's not 'all'
             ...(priorityFilter !== 'all' ? { priority: priorityFilter } : {}),
             // Always include sortBy
@@ -93,8 +93,8 @@ export function TasksList({ className }: TasksListProps = {}) {
         // Check if we have active filters that should have triggered a fetch
         const hasActiveFilters = 
             search !== '' || 
-            sortBy !== 'newest' || 
-            statusFilter !== 'all' || 
+            sortBy !== 'priority' || 
+            statusFilter !== 'active' || 
             priorityFilter !== 'all';
 
         // Only fetch if:
@@ -105,7 +105,11 @@ export function TasksList({ className }: TasksListProps = {}) {
             console.log('[TasksList] No filters active, performing initial fetch');
             initialFetchRef.current = false;
             // Fetch with default parameters
-            fetchTasks();
+            fetchTasks({
+                sortBy: 'priority',
+                status: 'active',
+                offset: 0
+            });
         } else if (initialFetchRef.current) {
             // Just mark initial fetch as complete without fetching again
             initialFetchRef.current = false;
@@ -201,7 +205,7 @@ export function TasksList({ className }: TasksListProps = {}) {
             return (
                 <div className="flex flex-col items-center justify-center py-10 text-center">
                     <div className="text-muted-foreground mb-2">No tasks found</div>
-                    {(search || statusFilter !== 'all' || priorityFilter !== 'all') && (
+                    {(search || statusFilter !== 'active' || sortBy !== 'priority' || priorityFilter !== 'all') && (
                         <button 
                             className="text-sm text-primary hover:underline"
                             onClick={handleClearFilters}

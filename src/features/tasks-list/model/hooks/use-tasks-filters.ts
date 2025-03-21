@@ -24,11 +24,11 @@ export function useTasksFilters({
   
   // Create parsers with string literals
   const [sortBy, setSortBy] = useQueryState('sort', 
-    parseAsStringLiteral(sortValues).withDefault('newest' as SortType)
+    parseAsStringLiteral(sortValues).withDefault('priority' as SortType)
   );
   
   const [statusFilter, setStatusFilter] = useQueryState('status', 
-    parseAsStringLiteral(statusValues).withDefault('all' as FilterType)
+    parseAsStringLiteral(statusValues).withDefault('active' as FilterType)
   );
   
   const [priorityFilter, setPriorityFilter] = useQueryState('priority', 
@@ -42,8 +42,8 @@ export function useTasksFilters({
       // Check if we have URL parameters that differ from defaults
       const hasUrlParameters = 
         search !== '' || 
-        sortBy !== 'newest' || 
-        statusFilter !== 'all' || 
+        sortBy !== 'priority' || 
+        statusFilter !== 'active' || 
         priorityFilter !== 'all';
 
       // If we have filters in URL, use them; otherwise send default parameters
@@ -60,14 +60,14 @@ export function useTasksFilters({
 
         // Construct filter parameters object with only necessary fields
         const filterParams: TaskFetchParams = {
-          // Always include sortBy as it has a default value
+          // Always include sortBy and status as they have default values
           sortBy,
+          status: statusFilter,
           offset: 0
         };
         
         // Only include other parameters if they have non-default values
         if (search) filterParams.search = search;
-        if (statusFilter !== 'all') filterParams.status = statusFilter;
         if (priorityFilter !== 'all') filterParams.priority = priorityFilter;
         
         // Trigger filter with appropriate parameters
@@ -84,11 +84,11 @@ export function useTasksFilters({
     if (onFilter && !isInitialMount.current) {
       const filterParams: TaskFetchParams = {
         sortBy,
+        status: statusFilter,
         offset: 0
       };
       
       if (value) filterParams.search = value;
-      if (statusFilter !== 'all') filterParams.status = statusFilter;
       if (priorityFilter !== 'all') filterParams.priority = priorityFilter;
       
       onFilter(filterParams);
@@ -103,11 +103,11 @@ export function useTasksFilters({
     if (onFilter && !isInitialMount.current) {
       const filterParams: TaskFetchParams = {
         sortBy,
+        status: statusFilter,
         offset: 0
       };
       
       // Don't include search parameter at all when cleared
-      if (statusFilter !== 'all') filterParams.status = statusFilter;
       if (priorityFilter !== 'all') filterParams.priority = priorityFilter;
       
       // temporary solution
@@ -127,11 +127,11 @@ export function useTasksFilters({
       if (onFilter) {
         const filterParams: TaskFetchParams = {
           sortBy: value,
+          status: statusFilter,
           offset: 0
         };
         
         if (search) filterParams.search = search;
-        if (statusFilter !== 'all') filterParams.status = statusFilter;
         if (priorityFilter !== 'all') filterParams.priority = priorityFilter;
         
         onFilter(filterParams);
@@ -145,11 +145,11 @@ export function useTasksFilters({
     if (onFilter && !isInitialMount.current) {
       const filterParams: TaskFetchParams = {
         sortBy,
+        status: value,
         offset: 0
       };
       
       if (search) filterParams.search = search;
-      if (value !== 'all') filterParams.status = value;
       if (priorityFilter !== 'all') filterParams.priority = priorityFilter;
       
       onFilter(filterParams);
@@ -162,11 +162,11 @@ export function useTasksFilters({
     if (onFilter && !isInitialMount.current) {
       const filterParams: TaskFetchParams = {
         sortBy,
+        status: statusFilter,
         offset: 0
       };
       
       if (search) filterParams.search = search;
-      if (statusFilter !== 'all') filterParams.status = statusFilter;
       if (value !== 'all') filterParams.priority = value;
       
       onFilter(filterParams);
@@ -176,14 +176,15 @@ export function useTasksFilters({
   // Handle clear all filters
   const handleClearFilters = useCallback(() => {
     setSearch('', { history: 'push' });
-    setStatusFilter('all', { history: 'push' });
+    setStatusFilter('active', { history: 'push' });
     setPriorityFilter('all', { history: 'push' });
-    setSortBy('newest', { history: 'push' });
+    setSortBy('priority', { history: 'push' });
     
     if (!isInitialMount.current) {
       if (onFilter) {
         const filterParams: TaskFetchParams = {
-          sortBy: 'newest',
+          sortBy: 'priority',
+          status: 'active',
           offset: 0
         };
         
@@ -191,7 +192,7 @@ export function useTasksFilters({
       }
       
       if (onSort) {
-        onSort('newest');
+        onSort('priority');
       }
     }
   }, [onFilter, onSort, setSearch, setStatusFilter, setPriorityFilter, setSortBy]);
@@ -214,11 +215,11 @@ export function useTasksFilters({
         );
       }
 
-      // Apply status filter
-      if (statusFilter !== 'all') {
-        filtered = filtered.filter(task => 
-          statusFilter === 'completed' ? task.completed : !task.completed
-        );
+      // Apply status filter - always filter by status
+      if (statusFilter === 'active') {
+        filtered = filtered.filter(task => !task.completed);
+      } else if (statusFilter === 'completed') {
+        filtered = filtered.filter(task => task.completed);
       }
 
       // Apply priority filter

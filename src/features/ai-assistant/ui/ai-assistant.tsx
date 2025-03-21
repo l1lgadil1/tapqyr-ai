@@ -34,9 +34,6 @@ export const AiAssistant = ({ className }: AiAssistantProps) => {
     return savedState ? JSON.parse(savedState) : false;
   });
   
-  // Task generation state
-  const [promptValue, setPromptValue] = useState('');
-  const [showTaskPopover, setShowTaskPopover] = useState(false);
 
   // Get state and actions from the store
   const { 
@@ -46,8 +43,6 @@ export const AiAssistant = ({ className }: AiAssistantProps) => {
     isGeneratingTasks,
     isAnalyzing,
     sendMessage,
-    generateTasks,
-    analyzeProductivity, 
     clearError 
   } = useAssistantStore();
   
@@ -139,19 +134,7 @@ export const AiAssistant = ({ className }: AiAssistantProps) => {
     setInputValue('');
   };
 
-  const handleGenerateTasks = () => {
-    if (!promptValue.trim() || isGeneratingTasks) return;
-    
-    generateTasks(promptValue);
-    setPromptValue('');
-    setShowTaskPopover(false);
-  };
 
-  const handleAnalyzeProductivity = () => {
-    if (isAnalyzing) return;
-    
-    analyzeProductivity();
-  };
 
   // Convert the store messages to the component's message format
   const mapMessages = (messages: AssistantMessage[]) => {
@@ -190,75 +173,7 @@ export const AiAssistant = ({ className }: AiAssistantProps) => {
           <Bot className="h-5 w-5 text-primary mx-auto" />
         )}
 
-        {!isCollapsed && (
-          <div className="flex items-center space-x-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={handleAnalyzeProductivity}
-                    disabled={isAnalyzing}
-                  >
-                    <BarChart className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Analyze Productivity</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
 
-            <Popover open={showTaskPopover} onOpenChange={setShowTaskPopover}>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <PopoverTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <ListTodo className="h-4 w-4" />
-                      </Button>
-                    </PopoverTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Generate Tasks</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <PopoverContent className="w-72">
-                <div className="grid gap-4">
-                  <div className="space-y-2">
-                    <h4 className="font-medium leading-none">Generate Tasks</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Describe what tasks you want to create
-                    </p>
-                  </div>
-                  <div className="grid gap-2">
-                    <div className="grid grid-cols-3 items-center gap-4">
-                      <Label htmlFor="prompt" className="text-right">
-                        Prompt
-                      </Label>
-                      <Input
-                        id="prompt"
-                        value={promptValue}
-                        onChange={e => setPromptValue(e.target.value)}
-                        placeholder="E.g. Weekly team meeting"
-                        className="col-span-2 h-8"
-                      />
-                    </div>
-                    <Button 
-                      size="sm" 
-                      onClick={handleGenerateTasks}
-                      disabled={!promptValue.trim() || isGeneratingTasks}
-                    >
-                      {isGeneratingTasks ? 'Generating...' : 'Generate Tasks'}
-                    </Button>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
-        )}
 
         <Button 
           variant="ghost" 
