@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Send, Bot, User, Loader2 } from 'lucide-react';
+import { Send, Bot, User, Loader2, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from '../../../shared/lib/i18n';
 import { Button } from '../../../shared/ui/button';
@@ -12,14 +12,8 @@ import { Card, CardContent } from '../../../shared/ui/card';
 import { Tabs, TabsContent } from '../../../shared/ui/tabs/tabs';
 import { cn } from '../../../shared/lib/utils';
 import { NavigationTabs } from '../../dashboard-page/ui/navigation-tabs';
-
-// Types for the AI assistant
-type Message = {
-  id: string;
-  content: string;
-  role: 'user' | 'assistant';
-  timestamp: Date;
-};
+import { useAssistantStore } from '../../../features/ai-assistant/model/assistant-store';
+import { Alert, AlertDescription, AlertTitle } from '../../../shared/ui/alert';
 
 /**
  * AI Assistant Page Component
@@ -27,100 +21,23 @@ type Message = {
  */
 export function AIAssistantPage() {
   const { t } = useTranslation(['todo', 'common']);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const { messages, isLoading, error, sendMessage, clearError } = useAssistantStore();
   const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Scroll to bottom when messages change
   useEffect(() => {
-    // messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
-  
-  // Initial welcome message
-  useEffect(() => {
-    if (messages.length === 0) {
-      setMessages([
-        {
-          id: 'welcome',
-          content: t('welcomeMessage', { ns: 'todo', defaultValue: 'Hello! I\'m your AI assistant. How can I help you with your tasks today?' }),
-          role: 'assistant',
-          timestamp: new Date(),
-        },
-      ]);
-    }
-  }, [t, messages.length]);
   
   // Handle sending a message
   const handleSendMessage = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || isLoading) return;
     
-    // Add user message to the chat
-    const userMessage: Message = {
-      id: `user-${Date.now()}`,
-      content: input,
-      role: 'user',
-      timestamp: new Date(),
-    };
-    
-    setMessages(prev => [...prev, userMessage]);
+    const message = input;
     setInput('');
-    setIsLoading(true);
     
-    try {
-      // TODO: Implement actual API call to backend
-      // This is a placeholder for the actual implementation
-      setTimeout(() => {
-        const assistantMessage: Message = {
-          id: `assistant-${Date.now()}`,
-          content: 'This is a placeholder response. The AI assistant feature is coming soon!',
-          role: 'assistant',
-          timestamp: new Date(),
-        };
-        
-        setMessages(prev => [...prev, assistantMessage]);
-        setIsLoading(false);
-      }, 400);
-      
-      // Actual implementation would look something like:
-      /*
-      const response = await fetch('/api/openai/assistant', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: input,
-          threadId: null,
-        }),
-      });
-      
-      const data = await response.json();
-      
-      const assistantMessage: Message = {
-        id: `assistant-${Date.now()}`,
-        content: data.response,
-        role: 'assistant',
-        timestamp: new Date(),
-      };
-      
-      setMessages(prev => [...prev, assistantMessage]);
-      */
-    } catch (error) {
-      console.error('Error sending message:', error);
-      
-      // Add error message
-      const errorMessage: Message = {
-        id: `error-${Date.now()}`,
-        content: t('errorMessage', { ns: 'common', defaultValue: 'Sorry, there was an error processing your request. Please try again.' }),
-        role: 'assistant',
-        timestamp: new Date(),
-      };
-      
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
-    }
+    await sendMessage(message);
   };
   
   // Handle key press (Enter to send)
@@ -139,12 +56,29 @@ export function AIAssistantPage() {
       
       <div className="container mx-auto px-4 py-6 max-w-4xl">
         <Tabs defaultValue="assistant" className="w-full">
-          <NavigationTabs activeTab="assistant" />
+          <NavigationTabs activeTab="dashboard" />
           
           <TabsContent value="assistant" className="mt-0">
             <Card className="border-primary/10 bg-card/80 backdrop-blur-sm">
               <CardContent className="p-0">
                 <div className="flex flex-col h-[70vh]">
+                  {/* Error alert */}
+                  {error && (
+                    <Alert variant="destructive" className="m-4">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>Error</AlertTitle>
+                      <AlertDescription>{error}</AlertDescription>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="ml-auto" 
+                        onClick={clearError}
+                      >
+                        Dismiss
+                      </Button>
+                    </Alert>
+                  )}
+                  
                   {/* Chat messages area */}
                   <ScrollArea className="flex-1 p-4">
                     <AnimatePresence initial={false}>

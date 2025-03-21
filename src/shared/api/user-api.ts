@@ -4,11 +4,15 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 export interface UserContext {
   id: string;
+  email?: string;
+  name?: string;
   workDescription: string;
   shortTermGoals: string;
   longTermGoals: string;
   otherContext: string;
   onboardingComplete: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CreateUserRequest {
@@ -30,17 +34,20 @@ export interface UpdateUserContextRequest {
 const sanitizeUserContext = (data: UserContext): UserContext => {
   return {
     ...data,
-    workDescription: data.workDescription === null ? '' : (data.workDescription || ''),
-    shortTermGoals: data.shortTermGoals === null ? '' : (data.shortTermGoals || ''),
-    longTermGoals: data.longTermGoals === null ? '' : (data.longTermGoals || ''),
-    otherContext: data.otherContext === null ? '' : (data.otherContext || ''),
+    // Ensure strings for fields that might be null
+    workDescription: data.workDescription || '',
+    shortTermGoals: data.shortTermGoals || '',
+    longTermGoals: data.longTermGoals || '',
+    otherContext: data.otherContext || '',
+    // Ensure boolean for onboardingComplete
+    onboardingComplete: Boolean(data.onboardingComplete),
   };
 };
 
 /**
  * Create a new user
  */
-export const createUser = async (data: CreateUserRequest) => {
+export const createUser = async (data: CreateUserRequest): Promise<UserContext> => {
   try {
     const response = await axios.post<UserContext>(`${API_URL}/users`, data);
     return sanitizeUserContext(response.data);
@@ -53,7 +60,7 @@ export const createUser = async (data: CreateUserRequest) => {
 /**
  * Get user by ID
  */
-export const getUserById = async (id: string) => {
+export const getUserById = async (id: string): Promise<UserContext> => {
   try {
     const response = await axios.get<UserContext>(`${API_URL}/users/${id}`);
     return sanitizeUserContext(response.data);
@@ -66,16 +73,9 @@ export const getUserById = async (id: string) => {
 /**
  * Update user context
  */
-export const updateUserContext = async (id: string, data: UpdateUserContextRequest) => {
+export const updateUserContext = async (id: string, data: UpdateUserContextRequest): Promise<UserContext> => {
   try {
-    // Ensure we're not sending null values
-    const sanitizedData = { ...data };
-    if (sanitizedData.workDescription === null) sanitizedData.workDescription = '';
-    if (sanitizedData.shortTermGoals === null) sanitizedData.shortTermGoals = '';
-    if (sanitizedData.longTermGoals === null) sanitizedData.longTermGoals = '';
-    if (sanitizedData.otherContext === null) sanitizedData.otherContext = '';
-    
-    const response = await axios.patch<UserContext>(`${API_URL}/users/${id}/context`, sanitizedData);
+    const response = await axios.patch<UserContext>(`${API_URL}/users/${id}/context`, data);
     return sanitizeUserContext(response.data);
   } catch (error) {
     console.error('Error updating user context:', error);
@@ -86,7 +86,7 @@ export const updateUserContext = async (id: string, data: UpdateUserContextReque
 /**
  * Get user context
  */
-export const getUserContext = async (id: string) => {
+export const getUserContext = async (id: string): Promise<UserContext> => {
   try {
     const response = await axios.get<UserContext>(`${API_URL}/users/${id}/context`);
     return sanitizeUserContext(response.data);

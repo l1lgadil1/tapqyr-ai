@@ -13,7 +13,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     checkAuth();
-  }, [checkAuth]);
+  }, []);
 
   useEffect(() => {
     const publicPaths = ['/auth/login', '/auth/register', '/auth/forgot-password','/'];

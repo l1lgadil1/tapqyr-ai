@@ -10,7 +10,7 @@ interface User {
 }
 
 interface AuthState {
-  user: User | null;
+  user:{user: User | null};
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;

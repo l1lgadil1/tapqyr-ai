@@ -1,4 +1,4 @@
-import { StrictMode } from 'react'
+// import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
 import './index.css'
@@ -12,13 +12,13 @@ const initializeApp = () => {
   const root = createRoot(document.getElementById('root')!);
   
   root.render(
-    <StrictMode>
+    <>
       <ErrorBoundary>
         <I18nProvider>
           <RouterProvider router={router} />
         </I18nProvider>
       </ErrorBoundary>
-    </StrictMode>
+    </>
   );
 };
 

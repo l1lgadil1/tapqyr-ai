@@ -1,30 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bot, X, ChevronLeft, ChevronRight, Send } from 'lucide-react';
+import { Bot, X, ChevronLeft, ChevronRight, Send, BarChart, ListTodo } from 'lucide-react';
 import { Button } from '../../../shared/ui/button';
 import { Dialog, DialogContent, DialogTrigger } from '../../../shared/ui/dialog';
 import { ScrollArea } from '../../../shared/ui/scroll-area';
 import { cn } from '../../../shared/lib/utils';
+import { useAssistantStore, AssistantMessage } from '../model/assistant-store';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../shared/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '../../../shared/ui/popover';
+import { Label } from '../../../shared/ui/label';
+import { Input } from '../../../shared/ui/input';
 
 interface AiAssistantProps {
   className?: string;
 }
-
-interface Message {
-  id: string;
-  content: string;
-  isUser: boolean;
-  timestamp: Date;
-}
-
-// Sample messages for demonstration
-const initialMessages: Message[] = [
-  {
-    id: '1',
-    content: 'Hello! I\'m your personal assistant. How can I help you today?',
-    isUser: false,
-    timestamp: new Date(Date.now() - 60000 * 5),
-  },
-];
 
 // Width configuration
 const COLLAPSED_WIDTH = 60; // Keep collapsed width fixed in pixels
@@ -46,7 +34,23 @@ export const AiAssistant = ({ className }: AiAssistantProps) => {
     return savedState ? JSON.parse(savedState) : false;
   });
   
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  // Task generation state
+  const [promptValue, setPromptValue] = useState('');
+  const [showTaskPopover, setShowTaskPopover] = useState(false);
+
+  // Get state and actions from the store
+  const { 
+    messages, 
+    isLoading, 
+    error, 
+    isGeneratingTasks,
+    isAnalyzing,
+    sendMessage,
+    generateTasks,
+    analyzeProductivity, 
+    clearError 
+  } = useAssistantStore();
+  
   const [inputValue, setInputValue] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -129,30 +133,34 @@ export const AiAssistant = ({ className }: AiAssistantProps) => {
   }, [messages]);
 
   const handleSendMessage = () => {
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim() || isLoading) return;
     
-    // Add user message
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: inputValue,
-      isUser: true,
-      timestamp: new Date(),
-    };
-    
-    setMessages((prev) => [...prev, userMessage]);
+    sendMessage(inputValue);
     setInputValue('');
+  };
+
+  const handleGenerateTasks = () => {
+    if (!promptValue.trim() || isGeneratingTasks) return;
     
-    // Simulate AI response
-    setTimeout(() => {
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: 'I\'m processing your request. This is a simulated response for demonstration purposes.',
-        isUser: false,
-        timestamp: new Date(),
-      };
-      
-      setMessages((prev) => [...prev, aiMessage]);
-    }, 1000);
+    generateTasks(promptValue);
+    setPromptValue('');
+    setShowTaskPopover(false);
+  };
+
+  const handleAnalyzeProductivity = () => {
+    if (isAnalyzing) return;
+    
+    analyzeProductivity();
+  };
+
+  // Convert the store messages to the component's message format
+  const mapMessages = (messages: AssistantMessage[]) => {
+    return messages.map(msg => ({
+      id: msg.id,
+      content: msg.content,
+      isUser: msg.role === 'user',
+      timestamp: msg.timestamp
+    }));
   };
 
   return (
@@ -181,6 +189,77 @@ export const AiAssistant = ({ className }: AiAssistantProps) => {
         {isCollapsed && (
           <Bot className="h-5 w-5 text-primary mx-auto" />
         )}
+
+        {!isCollapsed && (
+          <div className="flex items-center space-x-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={handleAnalyzeProductivity}
+                    disabled={isAnalyzing}
+                  >
+                    <BarChart className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Analyze Productivity</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <Popover open={showTaskPopover} onOpenChange={setShowTaskPopover}>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <ListTodo className="h-4 w-4" />
+                      </Button>
+                    </PopoverTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Generate Tasks</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <PopoverContent className="w-72">
+                <div className="grid gap-4">
+                  <div className="space-y-2">
+                    <h4 className="font-medium leading-none">Generate Tasks</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Describe what tasks you want to create
+                    </p>
+                  </div>
+                  <div className="grid gap-2">
+                    <div className="grid grid-cols-3 items-center gap-4">
+                      <Label htmlFor="prompt" className="text-right">
+                        Prompt
+                      </Label>
+                      <Input
+                        id="prompt"
+                        value={promptValue}
+                        onChange={e => setPromptValue(e.target.value)}
+                        placeholder="E.g. Weekly team meeting"
+                        className="col-span-2 h-8"
+                      />
+                    </div>
+                    <Button 
+                      size="sm" 
+                      onClick={handleGenerateTasks}
+                      disabled={!promptValue.trim() || isGeneratingTasks}
+                    >
+                      {isGeneratingTasks ? 'Generating...' : 'Generate Tasks'}
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+        )}
+
         <Button 
           variant="ghost" 
           size="icon" 
@@ -196,7 +275,7 @@ export const AiAssistant = ({ className }: AiAssistantProps) => {
         <>
           <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
             <div className="space-y-4">
-              {messages.map((message) => (
+              {mapMessages(messages).map((message) => (
                 <div 
                   key={message.id}
                   className={cn(
@@ -212,6 +291,35 @@ export const AiAssistant = ({ className }: AiAssistantProps) => {
                   </p>
                 </div>
               ))}
+
+              {(isLoading || isGeneratingTasks || isAnalyzing) && (
+                <div className="p-3 rounded-lg max-w-[85%] bg-muted border border-border">
+                  <div className="flex items-center space-x-2">
+                    <div className="h-3 w-3 bg-primary/60 rounded-full animate-pulse" />
+                    <div className="h-3 w-3 bg-primary/60 rounded-full animate-pulse delay-150" />
+                    <div className="h-3 w-3 bg-primary/60 rounded-full animate-pulse delay-300" />
+                    <span className="text-sm text-muted-foreground">
+                      {isLoading ? 'Thinking...' : 
+                       isGeneratingTasks ? 'Generating tasks...' : 
+                       'Analyzing productivity...'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {error && (
+                <div className="p-3 rounded-lg max-w-[85%] bg-destructive/10 border border-destructive text-destructive text-sm">
+                  <p>Error: {error}</p>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={clearError}
+                    className="mt-2 h-7 text-xs"
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              )}
             </div>
           </ScrollArea>
           
@@ -228,12 +336,13 @@ export const AiAssistant = ({ className }: AiAssistantProps) => {
                     handleSendMessage();
                   }
                 }}
+                disabled={isLoading || isGeneratingTasks || isAnalyzing}
               />
               <Button 
                 size="icon" 
                 className="shrink-0"
                 onClick={handleSendMessage}
-                disabled={!inputValue.trim()}
+                disabled={!inputValue.trim() || isLoading || isGeneratingTasks || isAnalyzing}
               >
                 <Send className="h-4 w-4" />
               </Button>
@@ -247,7 +356,15 @@ export const AiAssistant = ({ className }: AiAssistantProps) => {
 
 export const MobileAiAssistant = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const { 
+    messages, 
+    isLoading,
+    error,
+    isGeneratingTasks,
+    isAnalyzing,
+    sendMessage,
+    clearError
+  } = useAssistantStore();
   const [inputValue, setInputValue] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
@@ -262,30 +379,20 @@ export const MobileAiAssistant = () => {
   }, [messages]);
 
   const handleSendMessage = () => {
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim() || isLoading) return;
     
-    // Add user message
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: inputValue,
-      isUser: true,
-      timestamp: new Date(),
-    };
-    
-    setMessages((prev) => [...prev, userMessage]);
+    sendMessage(inputValue);
     setInputValue('');
-    
-    // Simulate AI response
-    setTimeout(() => {
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: 'I\'m processing your request. This is a simulated response for demonstration purposes.',
-        isUser: false,
-        timestamp: new Date(),
-      };
-      
-      setMessages((prev) => [...prev, aiMessage]);
-    }, 1000);
+  };
+  
+  // Convert the store messages to the component's message format
+  const mapMessages = (messages: AssistantMessage[]) => {
+    return messages.map(msg => ({
+      id: msg.id,
+      content: msg.content,
+      isUser: msg.role === 'user',
+      timestamp: msg.timestamp
+    }));
   };
   
   return (
@@ -311,7 +418,7 @@ export const MobileAiAssistant = () => {
         
         <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
           <div className="space-y-4">
-            {messages.map((message) => (
+            {mapMessages(messages).map((message) => (
               <div 
                 key={message.id}
                 className={cn(
@@ -327,6 +434,35 @@ export const MobileAiAssistant = () => {
                 </p>
               </div>
             ))}
+            
+            {(isLoading || isGeneratingTasks || isAnalyzing) && (
+              <div className="p-3 rounded-lg max-w-[85%] bg-muted border border-border">
+                <div className="flex items-center space-x-2">
+                  <div className="h-3 w-3 bg-primary/60 rounded-full animate-pulse" />
+                  <div className="h-3 w-3 bg-primary/60 rounded-full animate-pulse delay-150" />
+                  <div className="h-3 w-3 bg-primary/60 rounded-full animate-pulse delay-300" />
+                  <span className="text-sm text-muted-foreground">
+                    {isLoading ? 'Thinking...' : 
+                     isGeneratingTasks ? 'Generating tasks...' : 
+                     'Analyzing productivity...'}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {error && (
+              <div className="p-3 rounded-lg max-w-[85%] bg-destructive/10 border border-destructive text-destructive text-sm">
+                <p>Error: {error}</p>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={clearError}
+                  className="mt-2 h-7 text-xs"
+                >
+                  Dismiss
+                </Button>
+              </div>
+            )}
           </div>
         </ScrollArea>
         
@@ -343,12 +479,13 @@ export const MobileAiAssistant = () => {
                   handleSendMessage();
                 }
               }}
+              disabled={isLoading || isGeneratingTasks || isAnalyzing}
             />
             <Button 
               size="icon" 
               className="shrink-0"
               onClick={handleSendMessage}
-              disabled={!inputValue.trim()}
+              disabled={!inputValue.trim() || isLoading || isGeneratingTasks || isAnalyzing}
             >
               <Send className="h-4 w-4" />
             </Button>

@@ -151,6 +151,71 @@ Body:
 
 Returns the assistant's response and a thread ID for continuing the conversation.
 
+### Assistant Endpoints
+
+#### Send a message to the AI assistant
+```
+POST /api/assistant/chat
+```
+Request body:
+```json
+{
+  "message": "I need to create a task to finish my project by Friday",
+  "threadId": "optional-existing-thread-id"
+}
+```
+Response:
+```json
+{
+  "threadId": "thread_abc123",
+  "message": "I've created a task for you to finish your project by Friday. Is there anything else you need help with?",
+  "response": {
+    // Full OpenAI response object
+  }
+}
+```
+
+#### Create a new conversation thread
+```
+POST /api/assistant/thread
+```
+Response:
+```json
+{
+  "threadId": "thread_abc123",
+  "message": "Thread created successfully"
+}
+```
+
+#### Generate tasks based on a prompt
+```
+POST /api/assistant/generate-tasks
+```
+Request body:
+```json
+{
+  "prompt": "Plan a website redesign project for next month"
+}
+```
+Response:
+```json
+{
+  "message": "Tasks generated successfully"
+}
+```
+
+#### Analyze user productivity
+```
+GET /api/assistant/analyze-productivity
+```
+Response:
+```json
+{
+  "analysis": "Your productivity analysis shows that you've completed 70% of your tasks this week...",
+  "message": "Productivity analyzed successfully"
+}
+```
+
 ## Environment Variables
 
 - `PORT`: The port the server will run on (default: 3001)

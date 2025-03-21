@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useMemo } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useSpring, animated } from '@react-spring/three';
 import { 
@@ -8,9 +8,7 @@ import {
   Float, 
   Text, 
   MeshDistortMaterial, 
-  GradientTexture,
-  Sparkles,
-  useTexture
+  Sparkles
 } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
@@ -45,7 +43,7 @@ function FloatingObject({
     config: { tension: 300, friction: 10 }
   });
   
-  useFrame((state) => {
+  useFrame(() => {
     if (!meshRef.current) return;
     
     meshRef.current.rotation.x += rotationSpeed * 0.5;
@@ -108,8 +106,6 @@ function AICore() {
   const meshRef = useRef<THREE.Mesh>(null);
   const innerRef = useRef<THREE.Mesh>(null);
   
-  const [hovered, setHovered] = useState(false);
-  
   useFrame((state) => {
     if (!meshRef.current || !innerRef.current) return;
     
@@ -125,8 +121,8 @@ function AICore() {
     );
   });
   
-  const handlePointerOver = () => setHovered(true);
-  const handlePointerOut = () => setHovered(false);
+  const handlePointerOver = () => {};
+  const handlePointerOut = () => {};
   
   return (
     <group>
@@ -212,7 +208,9 @@ function PostProcessingEffects() {
       />
       <ChromaticAberration
         blendFunction={BlendFunction.NORMAL}
-        offset={[0.0005, 0.0005]}
+        offset={new THREE.Vector2(0.0005, 0.0005)}
+        radialModulation={false}
+        modulationOffset={0}
       />
     </EffectComposer>
   );
@@ -281,7 +279,7 @@ function Scene({ isActive = true }: SceneProps) {
       </group>
       
       <OrbitControls enableZoom={false} enablePan={false} />
-      <Environment preset="city" />
+      <Environment preset="sunset" />
       <PostProcessingEffects />
     </>
   );

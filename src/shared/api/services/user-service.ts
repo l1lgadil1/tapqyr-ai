@@ -13,27 +13,54 @@ export const userService = {
    * Create a new user
    */
   async createUser(data: CreateUserRequest): Promise<UserContext> {
-    return apiClient.post<UserContext>('/users', data);
+    try {
+      return await apiClient.post<UserContext>('/users', data);
+    } catch (error) {
+      console.error('Error creating user:', error);
+      throw error;
+    }
   },
 
   /**
    * Get user by ID
    */
   async getUserById(id: string): Promise<UserContext> {
-    return apiClient.get<UserContext>(`/users/${id}`);
+    try {
+      return await apiClient.get<UserContext>(`/users/${id}`);
+    } catch (error) {
+      console.error('Error getting user by ID:', error);
+      throw error;
+    }
   },
 
   /**
    * Update user context
    */
   async updateUserContext(id: string, data: UpdateUserContextRequest): Promise<UserContext> {
-    return apiClient.patch<UserContext>(`/users/${id}/context`, data);
+    try {
+      // Ensure we're not sending null values
+      const sanitizedData = { ...data };
+      if (sanitizedData.workDescription === null) sanitizedData.workDescription = '';
+      if (sanitizedData.shortTermGoals === null) sanitizedData.shortTermGoals = '';
+      if (sanitizedData.longTermGoals === null) sanitizedData.longTermGoals = '';
+      if (sanitizedData.otherContext === null) sanitizedData.otherContext = '';
+      
+      return await apiClient.patch<UserContext>(`/users/${id}/context`, sanitizedData);
+    } catch (error) {
+      console.error('Error updating user context:', error);
+      throw error;
+    }
   },
 
   /**
    * Get user context
    */
   async getUserContext(id: string): Promise<UserContext> {
-    return apiClient.get<UserContext>(`/users/${id}/context`);
+    try {
+      return await apiClient.get<UserContext>(`/users/${id}/context`);
+    } catch (error) {
+      console.error('Error getting user context:', error);
+      throw error;
+    }
   }
 }; 

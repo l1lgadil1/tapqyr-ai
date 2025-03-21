@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useState, useRef } from 'react';
-import { AiAssistant, MobileAiAssistant } from '../../../features/ai-assistant';
+import { AiAssistant } from '../../../features/ai-assistant';
+import { MobileAiAssistant } from '../../../features/ai-assistant/ui/ai-assistant';
 import { cn } from '../../../shared/lib/utils';
 import { useLocation } from 'react-router-dom';
 
@@ -17,7 +18,7 @@ const RESIZE_EVENT_NAME = 'aiAssistantResize';
 
 export const SplitLayout = ({ children, className }: SplitLayoutProps) => {
   const location = useLocation();
-  const isHomePage = location.pathname === '/';
+  const isHideChat = ['/','/auth/login','/auth/register'].some(i=>location.pathname === i)
   const contentRef = useRef<HTMLDivElement>(null);
   
   const [aiWidth, setAiWidth] = useState(() => {
@@ -74,15 +75,15 @@ export const SplitLayout = ({ children, className }: SplitLayoutProps) => {
 
   // Update margin when aiWidth changes
   useEffect(() => {
-    if (contentRef.current && !isHomePage && !isMobile) {
+    if (contentRef.current && !isHideChat && !isMobile) {
       contentRef.current.style.marginLeft = `${aiWidth}px`;
     }
-  }, [aiWidth, isHomePage, isMobile]);
+  }, [aiWidth, isHideChat, isMobile]);
 
   return (
     <div className={cn("flex flex-1 w-full h-full", className)}>
       {/* Desktop AI Assistant - hidden on mobile and home page */}
-      {!isHomePage && (
+      {!isHideChat && (
         <div className="hidden md:block h-full flex-shrink-0">
           <AiAssistant className="h-full fixed top-0 bottom-0 left-0 z-10" />
         </div>
@@ -92,13 +93,13 @@ export const SplitLayout = ({ children, className }: SplitLayoutProps) => {
       <div 
         ref={contentRef}
         className="flex-1 w-full transition-all duration-300"
-        style={{ marginLeft: !isMobile && !isHomePage ? `${aiWidth}px` : 0 }}
+        style={{ marginLeft: !isMobile && !isHideChat ? `${aiWidth}px` : 0 }}
       >
         {children}
       </div>
       
       {/* Mobile AI Assistant - only visible on mobile and not on home page */}
-      {!isHomePage && (
+      {!isHideChat && (
         <div className="md:hidden">
           <MobileAiAssistant />
         </div>

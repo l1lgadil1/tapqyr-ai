@@ -14,6 +14,7 @@ import { errorHandler, notFound } from './middleware/error-handler';
 import todoRoutes from './routes/todo-routes';
 import userRoutes from './routes/user-routes';
 import authRoutes from './routes/auth-routes';
+import assistantRoutes from './routes/assistant-routes';
 
 // Create Express application
 const app = express();
@@ -44,6 +45,7 @@ app.use(morgan('dev')); // HTTP request logger
 app.use('/api/todos', todoRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/assistant', assistantRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

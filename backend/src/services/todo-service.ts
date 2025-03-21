@@ -162,13 +162,9 @@ export class TodoService {
           orderBy = { createdAt: 'asc' };
           break;
         case 'priority':
-          // Custom priority sorting
-          orderBy = [
-            { priority: { 
-              custom: ['high', 'medium', 'low', null] 
-            }},
-            { createdAt: 'desc' }
-          ];
+          // For priority sorting, we'll fetch all results first and sort them in JavaScript
+          // since Prisma with SQLite doesn't support custom sort order directly
+          orderBy = { createdAt: 'desc' }; // Default secondary sort
           break;
         case 'dueDate':
           orderBy = [
@@ -194,7 +190,24 @@ export class TodoService {
       });
       
       // Convert Prisma todos to app todos
-      const appTodos = todos.map(todo => this.convertPrismaTodoToAppTodo(todo));
+      let appTodos = todos.map(todo => this.convertPrismaTodoToAppTodo(todo));
+      
+      // Apply custom priority sorting in JavaScript if needed
+      if (sortBy === 'priority') {
+        const priorityOrder = { 'high': 0, 'medium': 1, 'low': 2, null: 3, undefined: 3 };
+        appTodos = appTodos.sort((a, b) => {
+          // First sort by priority (high to low)
+          const priorityA = priorityOrder[a.priority] ?? 3;
+          const priorityB = priorityOrder[b.priority] ?? 3;
+          
+          if (priorityA !== priorityB) {
+            return priorityA - priorityB;
+          }
+          
+          // Then by created date (newest first) for same priority
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+      }
       
       return { todos: appTodos, total };
     } catch (error) {
