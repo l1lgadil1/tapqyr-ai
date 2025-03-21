@@ -2,6 +2,8 @@ import { OpenAI } from 'openai';
 import { PrismaClient, Todo } from '@prisma/client';
 import config from '../config';
 import logger from '../utils/logger';
+import memoryService from './memory-service';
+import pendingCallService from './pending-call-service';
 
 const prisma = new PrismaClient();
 const openai = new OpenAI({
@@ -83,10 +85,36 @@ class AssistantService {
    */
   async getOrCreateThreadForUser(userId: string): Promise<string> {
     try {
-      // Check if user has thread ID stored in their profile or in a separate table
-      // This is a simplification - you would typically store this in a database
-      // For now, we'll just create a new thread each time
-      return await this.createThread(userId);
+      // Look for an existing thread for this user
+      // First, check if the user already has an entry in AssistantThread table
+      const existingThreadEntry = await prisma.assistantThread.findFirst({
+        where: { userId }
+      });
+
+      // If found, update the lastUsed timestamp and return the threadId
+      if (existingThreadEntry) {
+        await prisma.assistantThread.update({
+          where: { id: existingThreadEntry.id },
+          data: { lastUsed: new Date() }
+        });
+        logger.info(`Found existing thread ${existingThreadEntry.threadId} for user ${userId}`);
+        return existingThreadEntry.threadId;
+      }
+
+      // If no existing thread, create a new one
+      const threadId = await this.createThread(userId);
+      
+      // Store the new thread in the database
+      await prisma.assistantThread.create({
+        data: {
+          userId,
+          threadId,
+          lastUsed: new Date()
+        }
+      });
+      
+      logger.info(`Created new thread ${threadId} for user ${userId}`);
+      return threadId;
     } catch (error) {
       logger.error(`Error getting or creating thread: ${(error as Error).message}`);
       throw new Error(`Failed to get or create thread: ${(error as Error).message}`);
@@ -106,15 +134,19 @@ class AssistantService {
         return this.mockSendMessage(userId, message);
       }
       
+      // Get the user's memory and context
+      const userContext = await memoryService.generateAssistantContext(userId);
+      
       // Add the user message to the thread
       await openai.beta.threads.messages.create(threadId, {
         role: 'user',
         content: message,
       });
       
-      // Run the assistant on the thread
+      // Run the assistant on the thread with user context
       const run = await openai.beta.threads.runs.create(threadId, {
         assistant_id: this.assistantId,
+        additional_instructions: userContext ? `Use this context about the user to personalize your responses:\n\n${userContext}` : undefined
       });
       
       // Wait for the run to complete
@@ -126,7 +158,7 @@ class AssistantService {
         
         // Handle function calls
         const toolCalls = completedRun.required_action.submit_tool_outputs.tool_calls;
-        const toolOutputs = await this.processFunctionCalls(userId, toolCalls);
+        const toolOutputs = await this.processFunctionCalls(userId, threadId, run.id, toolCalls);
         
         // Submit the tool outputs
         await openai.beta.threads.runs.submitToolOutputs(
@@ -149,6 +181,38 @@ class AssistantService {
       
       if (assistantMessages.length === 0) {
         throw new Error('No response from assistant');
+      }
+      
+      // Record this interaction in the user's memory
+      await this.recordInteraction(userId, message, assistantMessages[0]);
+      
+      // Check if there are any pending function calls for this user
+      const pendingCalls = await pendingCallService.getPendingCalls(userId);
+      
+      // If there are pending calls, append information to the response
+      if (pendingCalls.length > 0) {
+        // Get the original message content
+        const originalContent = assistantMessages[0].content;
+        
+        // Create a new message with additional information about pending actions
+        const enhancedMessage = {
+          ...assistantMessages[0],
+          content: originalContent.map(content => {
+            if (content.type === 'text') {
+              return {
+                type: 'text',
+                text: {
+                  value: content.text.value + `\n\n**I need your approval for ${pendingCalls.length} action(s).** Please check your pending actions to approve or reject them.`
+                }
+              };
+            }
+            return content;
+          }),
+          has_pending_calls: true,
+          pending_calls_count: pendingCalls.length
+        };
+        
+        return enhancedMessage;
       }
       
       return assistantMessages[0];
@@ -228,39 +292,31 @@ class AssistantService {
   /**
    * Process function calls from the assistant
    */
-  private async processFunctionCalls(userId: string, toolCalls: any[]): Promise<any[]> {
+  private async processFunctionCalls(userId: string, threadId: string, runId: string, toolCalls: any[]): Promise<any[]> {
     const toolOutputs = [];
     
     for (const tool of toolCalls) {
       const functionName = tool.function.name;
-      const functionArgs = JSON.parse(tool.function.arguments);
+      const functionArgs = tool.function.arguments;
       
       try {
-        let result;
+        // Store the function call for user approval instead of executing immediately
+        await pendingCallService.createPendingCall(
+          userId,
+          threadId,
+          runId,
+          tool.id,
+          functionName,
+          functionArgs
+        );
         
-        switch (functionName) {
-          case 'create_task':
-            result = await this.createTask(userId, functionArgs);
-            break;
-          case 'update_task':
-            result = await this.updateTask(userId, functionArgs);
-            break;
-          case 'delete_task':
-            result = await this.deleteTask(userId, functionArgs);
-            break;
-          case 'get_tasks':
-            result = await this.getTasks(userId, functionArgs);
-            break;
-          case 'analyze_productivity':
-            result = await this.analyzeProductivity(userId, functionArgs);
-            break;
-          default:
-            throw new Error(`Unknown function: ${functionName}`);
-        }
-        
+        // Return a message indicating that user approval is required
         toolOutputs.push({
           tool_call_id: tool.id,
-          output: JSON.stringify(result),
+          output: JSON.stringify({
+            status: 'pending_approval',
+            message: `The ${functionName} action requires your approval before it can be executed.`
+          }),
         });
         
       } catch (error) {
@@ -275,31 +331,88 @@ class AssistantService {
   }
 
   /**
-   * Create a task for a user
+   * Execute an approved function call
    */
-  private async createTask(userId: string, params: CreateTaskParams): Promise<Todo> {
+  async executeApprovedCall(userId: string, callId: string): Promise<any> {
     try {
-      logger.info(`Creating task for user ${userId}: ${params.title}`);
-
-      // Parse date string to Date object if present
-      let dueDate = undefined;
-      if (params.dueDate) {
-        dueDate = new Date(params.dueDate);
+      // Get the pending call
+      const pendingCall = await pendingCallService.getPendingCallById(callId, userId);
+      
+      if (pendingCall.status !== 'approved') {
+        throw new Error('This function call has not been approved');
       }
+      
+      const functionName = pendingCall.functionName;
+      const functionArgs = JSON.parse(pendingCall.functionArgs);
+      
+      let result;
+      
+      // Execute the appropriate function based on the name
+      switch (functionName) {
+        case 'create_task':
+          result = await this.createTask(userId, functionArgs);
+          break;
+        case 'update_task':
+          result = await this.updateTask(userId, functionArgs);
+          break;
+        case 'delete_task':
+          result = await this.deleteTask(userId, functionArgs);
+          break;
+        case 'get_tasks':
+          result = await this.getTasks(userId, functionArgs);
+          break;
+        case 'analyze_productivity':
+          result = await this.analyzeProductivity(userId, functionArgs);
+          break;
+        default:
+          throw new Error(`Unknown function: ${functionName}`);
+      }
+      
+      // Return the result
+      return result;
+      
+    } catch (error) {
+      logger.error(`Error executing approved call: ${(error as Error).message}`);
+      throw new Error(`Failed to execute approved call: ${(error as Error).message}`);
+    }
+  }
 
+  /**
+   * Create a task
+   */
+  private async createTask(userId: string, params: CreateTaskParams): Promise<any> {
+    try {
+      const { title, description, priority = 'medium', dueDate } = params;
+      
+      logger.info(`Creating task: ${title} for user ${userId}`);
+      
+      // Convert the dueDate from string to Date
+      const dueDateObj = dueDate ? new Date(dueDate) : null;
+      
       // Create the task in the database
       const task = await prisma.todo.create({
         data: {
-          title: params.title,
-          description: params.description || null,
-          priority: params.priority || 'medium',
-          dueDate: dueDate,
-          userId: userId,
-          isAIGenerated: true
+          title,
+          description: description || '',
+          priority,
+          dueDate: dueDateObj,
+          userId,
+          isAIGenerated: true // Mark as AI generated since this is called from the assistant
         }
       });
 
-      logger.info(`Task created with ID: ${task.id}`);
+      // Record this action in user memory
+      await memoryService.recordUserAction(userId, 'task_created', {
+        taskId: task.id,
+        title,
+        priority,
+        dueDate: dueDateObj?.toISOString() || null,
+        isAIGenerated: true
+      });
+      
+      // Update user's task preferences in memory if needed
+      await this.updateTaskPatterns(userId, 'create', task);
+      
       return task;
     } catch (error) {
       logger.error(`Error creating task: ${(error as Error).message}`);
@@ -308,45 +421,52 @@ class AssistantService {
   }
 
   /**
-   * Update a task for a user
+   * Update a task
    */
-  private async updateTask(userId: string, params: UpdateTaskParams): Promise<Todo> {
+  private async updateTask(userId: string, params: UpdateTaskParams): Promise<any> {
     try {
-      logger.info(`Updating task ${params.taskId} for user ${userId}`);
-
-      // First check if the task exists and belongs to the user
+      const { taskId, title, description, priority, dueDate, completed } = params;
+      
+      logger.info(`Updating task: ${taskId} for user ${userId}`);
+      
+      // Verify the task belongs to the user
       const existingTask = await prisma.todo.findFirst({
         where: {
-          id: params.taskId,
-          userId: userId
+          id: taskId,
+          userId
         }
       });
-
+      
       if (!existingTask) {
-        throw new Error(`Task ${params.taskId} not found or doesn't belong to user`);
+        throw new Error(`Task not found or does not belong to user`);
       }
-
-      // Parse date string to Date object if present
-      let dueDate = undefined;
-      if (params.dueDate) {
-        dueDate = new Date(params.dueDate);
-      }
-
+      
+      // Create the update data
+      const updateData: any = {};
+      if (title !== undefined) updateData.title = title;
+      if (description !== undefined) updateData.description = description;
+      if (priority !== undefined) updateData.priority = priority;
+      if (completed !== undefined) updateData.completed = completed;
+      if (dueDate !== undefined) updateData.dueDate = dueDate ? new Date(dueDate) : null;
+      
       // Update the task
       const updatedTask = await prisma.todo.update({
-        where: {
-          id: params.taskId
-        },
-        data: {
-          title: params.title !== undefined ? params.title : undefined,
-          description: params.description !== undefined ? params.description : undefined,
-          priority: params.priority !== undefined ? params.priority : undefined,
-          dueDate: params.dueDate !== undefined ? dueDate : undefined,
-          completed: params.completed !== undefined ? params.completed : undefined
-        }
+        where: { id: taskId },
+        data: updateData
       });
 
-      logger.info(`Task ${params.taskId} updated`);
+      // Record this action in user memory
+      await memoryService.recordUserAction(userId, 'task_updated', {
+        taskId,
+        updates: updateData,
+        isAIGenerated: true
+      });
+      
+      // If task was completed, update user patterns
+      if (completed === true && !existingTask.completed) {
+        await this.updateTaskPatterns(userId, 'complete', updatedTask);
+      }
+      
       return updatedTask;
     } catch (error) {
       logger.error(`Error updating task: ${(error as Error).message}`);
@@ -355,37 +475,137 @@ class AssistantService {
   }
 
   /**
-   * Delete a task for a user
+   * Delete a task
    */
-  private async deleteTask(userId: string, params: DeleteTaskParams): Promise<{ success: boolean, message: string }> {
+  private async deleteTask(userId: string, params: DeleteTaskParams): Promise<any> {
     try {
-      logger.info(`Deleting task ${params.taskId} for user ${userId}`);
-
-      // First check if the task exists and belongs to the user
+      const { taskId } = params;
+      
+      logger.info(`Deleting task: ${taskId} for user ${userId}`);
+      
+      // Verify the task belongs to the user
       const existingTask = await prisma.todo.findFirst({
         where: {
-          id: params.taskId,
-          userId: userId
+          id: taskId,
+          userId
         }
       });
-
+      
       if (!existingTask) {
-        throw new Error(`Task ${params.taskId} not found or doesn't belong to user`);
+        throw new Error(`Task not found or does not belong to user`);
       }
-
+      
       // Delete the task
       await prisma.todo.delete({
-        where: {
-          id: params.taskId
-        }
+        where: { id: taskId }
       });
 
-      logger.info(`Task ${params.taskId} deleted`);
-      return { success: true, message: `Task ${params.taskId} deleted successfully` };
+      // Record this action in user memory
+      await memoryService.recordUserAction(userId, 'task_deleted', {
+        taskId,
+        title: existingTask.title,
+        isAIGenerated: true
+      });
+      
+      return { success: true, message: `Task ${taskId} deleted successfully` };
     } catch (error) {
       logger.error(`Error deleting task: ${(error as Error).message}`);
       throw new Error(`Failed to delete task: ${(error as Error).message}`);
     }
+  }
+
+  /**
+   * Update user's task patterns in memory
+   */
+  private async updateTaskPatterns(userId: string, action: 'create' | 'complete', task: Todo) {
+    try {
+      // Get the user's memory
+      const memory = await memoryService.getOrCreateUserMemory(userId);
+      
+      // Get existing work patterns or initialize
+      const patterns = memory.workPatterns as any || {};
+      
+      // Initialize counters if not present
+      if (!patterns.tasksByPriority) {
+        patterns.tasksByPriority = { high: 0, medium: 0, low: 0 };
+      }
+      
+      if (!patterns.completionsByPriority) {
+        patterns.completionsByPriority = { high: 0, medium: 0, low: 0 };
+      }
+      
+      if (!patterns.preferredDueDates) {
+        patterns.preferredDueDates = {
+          withDueDate: 0,
+          withoutDueDate: 0,
+          averageDaysToComplete: 0,
+          totalCompletedWithDueDate: 0
+        };
+      }
+      
+      // Update statistics based on action
+      if (action === 'create') {
+        // Increment tasks by priority
+        patterns.tasksByPriority[task.priority]++;
+        
+        // Track due date preference
+        if (task.dueDate) {
+          patterns.preferredDueDates.withDueDate++;
+        } else {
+          patterns.preferredDueDates.withoutDueDate++;
+        }
+      } else if (action === 'complete') {
+        // Increment completions by priority
+        patterns.completionsByPriority[task.priority]++;
+        
+        // If task had a due date, calculate days to complete
+        if (task.dueDate) {
+          const created = task.createdAt.getTime();
+          const completed = new Date().getTime();
+          const dueDate = task.dueDate.getTime();
+          
+          // Update average days to complete
+          const daysToComplete = Math.round((completed - created) / (1000 * 60 * 60 * 24));
+          const totalCompleted = patterns.preferredDueDates.totalCompletedWithDueDate;
+          const currentAvg = patterns.preferredDueDates.averageDaysToComplete;
+          
+          // Calculate new average
+          patterns.preferredDueDates.totalCompletedWithDueDate++;
+          patterns.preferredDueDates.averageDaysToComplete = 
+            (currentAvg * totalCompleted + daysToComplete) / (totalCompleted + 1);
+        }
+      }
+      
+      // Calculate completion rates
+      const totalByPriority = patterns.tasksByPriority;
+      const completedByPriority = patterns.completionsByPriority;
+      
+      patterns.completionRate = {
+        overall: this.calculateRate(
+          completedByPriority.high + completedByPriority.medium + completedByPriority.low,
+          totalByPriority.high + totalByPriority.medium + totalByPriority.low
+        ),
+        byPriority: {
+          high: this.calculateRate(completedByPriority.high, totalByPriority.high),
+          medium: this.calculateRate(completedByPriority.medium, totalByPriority.medium),
+          low: this.calculateRate(completedByPriority.low, totalByPriority.low)
+        }
+      };
+      
+      // Update the work patterns in memory
+      await memoryService.updateMemoryField(userId, 'workPatterns', patterns);
+    } catch (error) {
+      // Log but don't fail the operation
+      logger.error(`Error updating task patterns: ${(error as Error).message}`);
+    }
+  }
+  
+  /**
+   * Helper function to calculate rate
+   */
+  private calculateRate(completed: number, total: number): number {
+    if (total === 0) return 0;
+    return Number((completed / total * 100).toFixed(1));
   }
 
   /**
@@ -435,151 +655,334 @@ class AssistantService {
   }
 
   /**
-   * Analyze productivity for a user
+   * Analyze user productivity
    */
-  private async analyzeProductivity(userId: string, params: AnalyzeProductivityParams): Promise<any> {
+  async analyzeProductivity(userId: string, startDate?: string, endDate?: string): Promise<any> {
     try {
       logger.info(`Analyzing productivity for user ${userId}`);
       
-      // Define the date range for analysis
-      const startDate = params.startDate ? new Date(params.startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Default to last 30 days
-      const endDate = params.endDate ? new Date(params.endDate) : new Date();
+      // Create date range filters
+      const start = startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // default to last 30 days
+      const end = endDate ? new Date(endDate) : new Date();
       
-      // Get completed tasks in the date range
-      const completedTasks = await prisma.todo.findMany({
+      // Get all tasks for the user
+      const tasks = await prisma.todo.findMany({
         where: {
           userId,
-          completed: true,
           createdAt: {
-            gte: startDate,
-            lte: endDate
+            gte: start,
+            lte: end
           }
         }
       });
       
-      // Get incomplete tasks in the date range
-      const incompleteTasks = await prisma.todo.findMany({
-        where: {
-          userId,
-          completed: false,
-          createdAt: {
-            gte: startDate,
-            lte: endDate
-          }
-        }
-      });
+      // Get completed tasks
+      const completedTasks = tasks.filter(task => task.completed);
       
-      // Get overdue tasks
-      const overdueTasks = await prisma.todo.findMany({
-        where: {
-          userId,
-          completed: false,
-          dueDate: {
-            lt: new Date()
-          }
-        }
-      });
+      // Calculate statistics
+      const totalTasks = tasks.length;
+      const completedCount = completedTasks.length;
+      const completionRate = totalTasks > 0 ? (completedCount / totalTasks * 100).toFixed(1) : 0;
       
-      // Calculate completion rate
-      const totalTasks = completedTasks.length + incompleteTasks.length;
-      const completionRate = totalTasks > 0 ? (completedTasks.length / totalTasks) * 100 : 0;
-      
-      // Group completed tasks by priority
-      const completedByPriority = {
-        high: completedTasks.filter(task => task.priority === 'high').length,
-        medium: completedTasks.filter(task => task.priority === 'medium').length,
-        low: completedTasks.filter(task => task.priority === 'low').length
+      // Calculate tasks by priority
+      const tasksByPriority = {
+        high: tasks.filter(task => task.priority === 'high').length,
+        medium: tasks.filter(task => task.priority === 'medium').length,
+        low: tasks.filter(task => task.priority === 'low').length
       };
       
-      // Calculate average completion time
-      const completionTimes = completedTasks
-        .filter(task => task.dueDate)
-        .map(task => {
-          const createdAt = new Date(task.createdAt);
-          const completedAt = task.dueDate as Date; // Assuming dueDate is when it was completed
-          return (completedAt.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24); // Days
-        });
+      // Calculate completion rate by priority
+      const completionByPriority = {
+        high: {
+          total: tasksByPriority.high,
+          completed: completedTasks.filter(task => task.priority === 'high').length,
+          rate: tasksByPriority.high > 0 
+            ? (completedTasks.filter(task => task.priority === 'high').length / tasksByPriority.high * 100).toFixed(1) 
+            : 0
+        },
+        medium: {
+          total: tasksByPriority.medium,
+          completed: completedTasks.filter(task => task.priority === 'medium').length,
+          rate: tasksByPriority.medium > 0 
+            ? (completedTasks.filter(task => task.priority === 'medium').length / tasksByPriority.medium * 100).toFixed(1) 
+            : 0
+        },
+        low: {
+          total: tasksByPriority.low,
+          completed: completedTasks.filter(task => task.priority === 'low').length,
+          rate: tasksByPriority.low > 0 
+            ? (completedTasks.filter(task => task.priority === 'low').length / tasksByPriority.low * 100).toFixed(1) 
+            : 0
+        }
+      };
       
-      const avgCompletionTime = completionTimes.length > 0
-        ? completionTimes.reduce((sum, time) => sum + time, 0) / completionTimes.length
+      // Get overdue tasks
+      const now = new Date();
+      const overdueTasks = tasks.filter(
+        task => !task.completed && task.dueDate && task.dueDate < now
+      );
+      
+      // Calculate average task age for completed tasks
+      let totalAgeInDays = 0;
+      completedTasks.forEach(task => {
+        const created = task.createdAt.getTime();
+        const completed = new Date().getTime();
+        const ageInDays = (completed - created) / (1000 * 60 * 60 * 24);
+        totalAgeInDays += ageInDays;
+      });
+      
+      const averageTaskAgeInDays = completedTasks.length > 0 
+        ? (totalAgeInDays / completedTasks.length).toFixed(1) 
         : 0;
       
-      return {
+      // Get user memory data
+      const memory = await memoryService.getOrCreateUserMemory(userId);
+      
+      // Construct the productivity data
+      const productivityData = {
         period: {
-          startDate: startDate.toISOString().split('T')[0],
-          endDate: endDate.toISOString().split('T')[0]
+          start: start.toISOString(),
+          end: end.toISOString(),
+          days: Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
         },
-        summary: {
+        overview: {
           totalTasks,
-          completedTasks: completedTasks.length,
-          incompleteTasks: incompleteTasks.length,
+          completedTasks: completedCount,
+          completionRate,
           overdueTasks: overdueTasks.length,
-          completionRate: completionRate.toFixed(2) + '%'
+          averageTaskAgeInDays
         },
-        details: {
-          completedByPriority,
-          avgCompletionTime: avgCompletionTime.toFixed(2) + ' days'
-        },
-        recommendations: this.generateProductivityRecommendations(
-          completedTasks,
-          incompleteTasks,
-          overdueTasks,
-          completionRate
-        )
+        byPriority: completionByPriority,
+        // Include historical patterns from user memory if available
+        patterns: memory.workPatterns || {}
+      };
+      
+      // Generate personalized recommendations based on the data and memory
+      const recommendations = await this.generateProductivityRecommendations(userId, productivityData, memory);
+      
+      return {
+        ...productivityData,
+        recommendations
       };
     } catch (error) {
       logger.error(`Error analyzing productivity: ${(error as Error).message}`);
       throw new Error(`Failed to analyze productivity: ${(error as Error).message}`);
     }
   }
-
+  
   /**
-   * Generate productivity recommendations based on task data
+   * Generate personalized productivity recommendations
    */
-  private generateProductivityRecommendations(
-    completedTasks: Todo[],
-    incompleteTasks: Todo[],
-    overdueTasks: Todo[],
-    completionRate: number
-  ): string[] {
+  private async generateProductivityRecommendations(
+    userId: string, 
+    productivityData: any, 
+    memory: any
+  ): Promise<string[]> {
+    // Basic recommendations
     const recommendations: string[] = [];
     
-    // Low completion rate recommendation
+    // Get user data
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        shortTermGoals: true,
+        longTermGoals: true
+      }
+    });
+    
+    // Completion rate recommendations
+    const completionRate = parseFloat(productivityData.overview.completionRate);
     if (completionRate < 50) {
-      recommendations.push(
-        "Your task completion rate is below 50%. Consider breaking down tasks into smaller, more manageable items."
-      );
+      recommendations.push("Your task completion rate is below 50%. Consider creating fewer tasks or breaking large tasks into smaller, more manageable ones.");
+    } else if (completionRate > 80) {
+      recommendations.push("Great job! Your completion rate is very high. You might be ready to take on more challenging tasks.");
     }
     
-    // Overdue tasks recommendations
-    if (overdueTasks.length > 0) {
-      recommendations.push(
-        `You have ${overdueTasks.length} overdue tasks. Consider reviewing and rescheduling these tasks.`
-      );
-      
-      if (overdueTasks.length > 5) {
-        recommendations.push(
-          "You have a high number of overdue tasks. Try focusing on completing these before adding new tasks."
-        );
+    // Overdue task recommendations
+    if (productivityData.overview.overdueTasks > 0) {
+      if (productivityData.overview.overdueTasks > 5) {
+        recommendations.push(`You have ${productivityData.overview.overdueTasks} overdue tasks. Consider focusing on these before creating new ones.`);
+      } else {
+        recommendations.push(`You have a few overdue tasks. Try to address them soon to maintain your productivity.`);
       }
     }
     
-    // High priority incomplete tasks
-    const highPriorityIncomplete = incompleteTasks.filter(task => task.priority === 'high').length;
-    if (highPriorityIncomplete > 0) {
-      recommendations.push(
-        `You have ${highPriorityIncomplete} high priority tasks incomplete. Consider focusing on these first.`
-      );
+    // Priority-based recommendations
+    const highPriorityRate = parseFloat(productivityData.byPriority.high.rate);
+    if (highPriorityRate < 70 && productivityData.byPriority.high.total > 0) {
+      recommendations.push("Your completion rate for high priority tasks is lower than ideal. Consider focusing more on high priority items.");
     }
     
-    // General recommendations
-    if (completionRate > 80) {
-      recommendations.push(
-        "Great job on your high completion rate! Consider taking on more challenging tasks."
-      );
+    // Personalized recommendations based on user's memory and goals
+    if (memory && memory.workPatterns) {
+      const patterns = memory.workPatterns as any;
+      
+      // Due date preferences
+      if (patterns.preferredDueDates) {
+        const { withDueDate, withoutDueDate } = patterns.preferredDueDates;
+        if (withDueDate > withoutDueDate * 2) {
+          recommendations.push("You seem to work well with deadlines. Continue setting due dates for your tasks for better productivity.");
+        } else if (withoutDueDate > withDueDate * 2) {
+          recommendations.push("You often create tasks without due dates. Setting deadlines might help you prioritize better.");
+        }
+      }
+      
+      // Priority distribution
+      if (patterns.tasksByPriority) {
+        const { high, medium, low } = patterns.tasksByPriority;
+        const total = high + medium + low;
+        
+        if (total > 0) {
+          const highPercent = (high / total) * 100;
+          
+          if (highPercent > 50) {
+            recommendations.push("You mark over 50% of your tasks as high priority. Being more selective with priorities might help you focus better.");
+          } else if (highPercent < 10 && total > 10) {
+            recommendations.push("You rarely use high priority. Don't hesitate to mark truly important tasks as high priority to ensure they get proper attention.");
+          }
+        }
+      }
+    }
+    
+    // Goal-based recommendations
+    if (user?.shortTermGoals) {
+      recommendations.push(`Based on your short-term goals: "${user.shortTermGoals}", consider creating specific tasks that directly contribute to these objectives.`);
+    }
+    
+    // If we don't have many recommendations, add a generic one
+    if (recommendations.length < 2) {
+      recommendations.push("Regular reviews of your task list can help you stay organized and maintain momentum on your projects.");
     }
     
     return recommendations;
+  }
+
+  /**
+   * Get chat history for a user
+   */
+  async getChatHistory(userId: string, threadId: string, limit: number = 20): Promise<any[]> {
+    try {
+      logger.info(`Getting chat history for user ${userId}, thread ${threadId}`);
+      
+      // If no assistant ID is configured, return mock history
+      if (!this.assistantId) {
+        logger.info('Using mock implementation for chat history');
+        return this.mockChatHistory(userId);
+      }
+      
+      // Retrieve messages from the thread
+      const messages = await openai.beta.threads.messages.list(threadId, {
+        limit: limit,
+        order: 'desc'
+      });
+      
+      return messages.data.map(msg => ({
+        id: msg.id,
+        role: msg.role,
+        content: msg.content,
+        createdAt: new Date(msg.created_at * 1000).toISOString()
+      }));
+    } catch (error) {
+      logger.error(`Error getting chat history: ${(error as Error).message}`);
+      throw new Error(`Failed to get chat history: ${(error as Error).message}`);
+    }
+  }
+  
+  /**
+   * Mock implementation of getChatHistory
+   */
+  private mockChatHistory(userId: string): any[] {
+    const now = Date.now();
+    const hour = 60 * 60 * 1000;
+    
+    return [
+      {
+        id: `mock-${now}-1`,
+        role: 'assistant',
+        content: [{ type: 'text', text: { value: 'How can I help you with your tasks today?' } }],
+        createdAt: new Date(now - hour).toISOString()
+      },
+      {
+        id: `mock-${now}-2`,
+        role: 'user',
+        content: [{ type: 'text', text: { value: 'I need to organize my work for the week' } }],
+        createdAt: new Date(now - hour + 5 * 60 * 1000).toISOString()
+      },
+      {
+        id: `mock-${now}-3`,
+        role: 'assistant',
+        content: [{ type: 'text', text: { value: 'I can help with that. Let me create some tasks for you based on your goals.' } }],
+        createdAt: new Date(now - hour + 10 * 60 * 1000).toISOString()
+      }
+    ];
+  }
+
+  /**
+   * Record an interaction in the user's memory
+   */
+  private async recordInteraction(userId: string, userMessage: string, assistantResponse: any) {
+    try {
+      // Extract text from assistant response
+      let responseText = '';
+      if (assistantResponse.content && assistantResponse.content.length > 0) {
+        for (const content of assistantResponse.content) {
+          if (content.type === 'text') {
+            responseText += content.text.value + '\n';
+          }
+        }
+      }
+      
+      // Create a memory entry
+      const memoryEntry = `User: ${userMessage}\nAssistant: ${responseText.trim()}`;
+      
+      // Add to memory
+      await memoryService.appendToMemoryText(userId, memoryEntry);
+      
+      // Record user action
+      await memoryService.recordUserAction(userId, 'chat_interaction', {
+        userMessage,
+        assistantResponsePreview: responseText.length > 100 ? responseText.substring(0, 100) + '...' : responseText
+      });
+      
+      // Analyze and update preferences if possible (advanced feature, could be expanded)
+      this.updateUserPreferencesFromMessage(userId, userMessage, responseText);
+    } catch (error) {
+      // Log but don't fail the main operation
+      logger.error(`Error recording interaction: ${(error as Error).message}`);
+    }
+  }
+  
+  /**
+   * Update user preferences based on message content
+   */
+  private async updateUserPreferencesFromMessage(userId: string, userMessage: string, assistantResponse: string) {
+    try {
+      // This is a basic implementation that could be expanded
+      const message = userMessage.toLowerCase();
+      
+      // Check for task preferences
+      if (message.includes('prefer') || message.includes('like') || message.includes('want')) {
+        // Update task preferences memory
+        const memory = await memoryService.getOrCreateUserMemory(userId);
+        const preferences = memory.taskPreferences as any || {};
+        
+        // Simple pattern matching for preferences
+        if (message.includes('high priority')) {
+          preferences.preferredPriority = 'high';
+        } else if (message.includes('medium priority')) {
+          preferences.preferredPriority = 'medium';
+        } else if (message.includes('low priority')) {
+          preferences.preferredPriority = 'low';
+        }
+        
+        // Update memory
+        await memoryService.updateMemoryField(userId, 'taskPreferences', preferences);
+      }
+      
+      // More advanced preference analysis could be added here
+    } catch (error) {
+      logger.error(`Error updating preferences: ${(error as Error).message}`);
+    }
   }
 }
 

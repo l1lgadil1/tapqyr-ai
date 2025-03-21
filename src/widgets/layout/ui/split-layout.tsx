@@ -1,6 +1,5 @@
 import { ReactNode, useEffect, useState, useRef } from 'react';
-import { AiAssistant } from '../../../features/ai-assistant';
-import { MobileAiAssistant } from '../../../features/ai-assistant/ui/ai-assistant';
+import { AiAssistant, MobileAiAssistant } from '../../../features/ai-assistant';
 import { cn } from '../../../shared/lib/utils';
 import { useLocation } from 'react-router-dom';
 

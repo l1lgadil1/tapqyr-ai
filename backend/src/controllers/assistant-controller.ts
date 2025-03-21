@@ -2,6 +2,9 @@ import { Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import assistantService from '../services/assistant-service';
 import logger from '../utils/logger';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 /**
  * Assistant controller for handling AI assistant related endpoints
@@ -182,6 +185,119 @@ class AssistantController {
       logger.error(`Error analyzing productivity: ${(error as Error).message}`);
       return res.status(500).json({
         message: 'Failed to analyze productivity',
+        error: (error as Error).message
+      });
+    }
+  }
+
+  /**
+   * Get chat history for a user
+   */
+  async getChatHistory(req: Request, res: Response) {
+    try {
+      const userId = req.user?.userId;
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized - User ID not found' });
+      }
+
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
+      
+      // Get thread for user
+      const threadId = await assistantService.getOrCreateThreadForUser(userId);
+      
+      logger.info(`Getting chat history for user ${userId}`);
+      
+      // Get chat history
+      const chatHistory = await assistantService.getChatHistory(userId, threadId, limit);
+
+      return res.status(200).json({
+        threadId,
+        messages: chatHistory
+      });
+    } catch (error) {
+      logger.error(`Error getting chat history: ${(error as Error).message}`);
+      return res.status(500).json({
+        message: 'Failed to get chat history',
+        error: (error as Error).message
+      });
+    }
+  }
+
+  /**
+   * Clean up extra threads for a user (keeping only the primary one)
+   * This is an admin/maintenance function and should be called carefully
+   */
+  async cleanupUserThreads(req: Request, res: Response) {
+    try {
+      const { userId } = req.params;
+      
+      // Admin check would go here in a real application
+      
+      logger.info(`Cleaning up threads for user ${userId}`);
+      
+      // Get all threads for the user
+      const threads = await prisma.assistantThread.findMany({
+        where: { userId },
+        orderBy: { lastUsed: 'desc' }
+      });
+      
+      if (threads.length <= 1) {
+        return res.status(200).json({
+          message: 'User has 0 or 1 threads, no cleanup needed',
+          threadsCount: threads.length
+        });
+      }
+      
+      // Keep the most recently used thread, delete the rest
+      const [primaryThread, ...extraThreads] = threads;
+      
+      // Delete the extra threads
+      const extraThreadIds = extraThreads.map(thread => thread.id);
+      await prisma.assistantThread.deleteMany({
+        where: {
+          id: { in: extraThreadIds }
+        }
+      });
+      
+      return res.status(200).json({
+        message: 'Successfully cleaned up extra threads',
+        keptThreadId: primaryThread.threadId,
+        deletedCount: extraThreads.length
+      });
+    } catch (error) {
+      logger.error(`Error cleaning up threads: ${(error as Error).message}`);
+      return res.status(500).json({
+        message: 'Failed to clean up threads',
+        error: (error as Error).message
+      });
+    }
+  }
+
+  /**
+   * Execute an approved function call
+   */
+  async executeApprovedCall(req: Request, res: Response) {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized - User ID not found' });
+      }
+
+      const { id } = req.params;
+      
+      // Execute the approved call
+      const result = await assistantService.executeApprovedCall(userId, id);
+      
+      return res.status(200).json({
+        success: true,
+        message: 'Function call executed successfully',
+        result
+      });
+    } catch (error) {
+      logger.error(`Error executing approved call: ${(error as Error).message}`);
+      return res.status(500).json({
+        message: 'Failed to execute approved call',
         error: (error as Error).message
       });
     }

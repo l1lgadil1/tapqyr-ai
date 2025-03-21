@@ -54,6 +54,9 @@ model User {
   refreshToken      String?
   
   todos             Todo[]
+  assistantThreads  AssistantThread[]
+  userMemory        UserMemory?
+  pendingFunctionCalls PendingFunctionCall[]
 
   @@map("users")
 }
@@ -66,4 +69,57 @@ model BlacklistedToken {
   createdAt DateTime @default(now())
 
   @@map("blacklisted_tokens")
+}
+
+// AssistantThread model for storing OpenAI thread IDs for users
+model AssistantThread {
+  id         String   @id @default(uuid())
+  userId     String   @unique
+  threadId   String   @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  lastUsed   DateTime @default(now())
+  
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("assistant_threads")
+}
+
+// UserMemory model for storing AI assistant memory about users
+model UserMemory {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Memory fields - structured data that the assistant can use
+  taskPreferences   Json?    // Stores learned task preferences
+  workPatterns      Json?    // Stores observed work patterns
+  interactionHistory Json?   // Stores summary of past interactions
+  userPersona       Json?    // Stores learned user persona/preferences
+  
+  // Raw memory text - can be used for direct context insertion
+  memoryText        String?  // Longer form text memory that can be included in prompts
+  
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_memories")
+}
+
+// PendingFunctionCall model for storing function calls that need user approval
+model PendingFunctionCall {
+  id            String   @id @default(uuid())
+  userId        String
+  threadId      String
+  runId         String
+  functionName  String
+  functionArgs  String   // Stored as JSON string
+  toolCallId    String   
+  status        String   @default("pending") // pending, approved, rejected
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("pending_function_calls")
 }
