@@ -228,10 +228,8 @@ export const tasksApi = {
    */
   async toggleTaskCompletion(id: string): Promise<Task> {
     try {
-      const task = await this.getTaskById(id);
-      const response = await apiClient.patch(`/todos/${id}`, {
-        completed: !task.completed,
-      });
+      // Use the proper toggle endpoint instead of directly updating
+      const response = await apiClient.patch(`/todos/${id}/toggle`);
       const data = handleApiResponse<TaskResponse>(response);
       return mapTaskResponse(data);
     } catch (error) {
