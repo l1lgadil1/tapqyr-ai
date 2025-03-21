@@ -74,6 +74,7 @@ export function TaskItem({
         'relative p-4 rounded-lg border border-white/10',
         isCompleted ? 'bg-secondary/10' : 'bg-secondary/5',
         isDeleting && 'scale-95 opacity-0',
+        'cursor-pointer hover:shadow-md hover:border-primary/30 transition-all duration-300',
         className
       )}
       initial={{ opacity: 0, y: 20 }}
@@ -93,6 +94,16 @@ export function TaskItem({
           isHovered ? 'opacity-100' : ''
         )}
       />
+      
+      {/* Indicator that task can be clicked to view details */}
+      <div 
+        className={cn(
+          "absolute top-2 right-2 opacity-0 text-xs text-muted-foreground transition-opacity duration-300",
+          isHovered ? 'opacity-70' : ''
+        )}
+      >
+        Click to view
+      </div>
       
       <div className="flex items-start gap-3 relative z-10">
         <div className="flex-shrink-0 pt-0.5">

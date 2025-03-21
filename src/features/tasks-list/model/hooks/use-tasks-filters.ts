@@ -1,246 +1,236 @@
-import { useState, useCallback, useMemo } from 'react';
-import { SortType, FilterType, PriorityFilter, TaskFetchParams, Task } from '../types';
-
-export interface UseTasksFiltersOptions {
-  onFilter?: (params: TaskFetchParams) => void;
-  onSort?: (sortBy: SortType) => void;
-  clientSideFiltering?: boolean;
-  initialSort?: SortType;
-  initialStatusFilter?: FilterType;
-  initialPriorityFilter?: PriorityFilter;
-  initialSearch?: string;
-  initialView?: 'all' | 'today' | 'upcoming' | 'completed';
-}
-
-export interface UseTasksFiltersReturn {
-  search: string;
-  sortBy: SortType;
-  statusFilter: FilterType;
-  priorityFilter: PriorityFilter;
-  currentView: 'all' | 'today' | 'upcoming' | 'completed';
-  taskStats: {
-    all: number;
-    active: number;
-    completed: number;
-    today: number;
-    upcoming: number;
-    high: number;
-  };
-  handleSearchChange: (value: string) => void;
-  handleSearchClear: () => void;
-  handleSortChange: (value: SortType) => void;
-  handleStatusFilterChange: (value: FilterType) => void;
-  handlePriorityFilterChange: (value: PriorityFilter) => void;
-  handleClearFilters: () => void;
-  filterTasks: (tasks: Task[]) => Task[];
-  setView: (view: 'all' | 'today' | 'upcoming' | 'completed') => void;
-}
+import { useCallback, useEffect, useRef, useMemo } from 'react';
+import { Task, SortType, FilterType, PriorityFilter, TaskFetchParams } from '../types';
+import { parseAsString, parseAsStringLiteral, useQueryState } from 'nuqs';
 
 export function useTasksFilters({
   onFilter,
   onSort,
-  clientSideFiltering = !onFilter,
-  initialSort = 'newest',
-  initialStatusFilter = 'all',
-  initialPriorityFilter = 'all',
-  initialSearch = '',
-  initialView = 'all',
-}: UseTasksFiltersOptions = {}): UseTasksFiltersReturn {
-  // State for search, sort, and filters
-  const [search, setSearch] = useState(initialSearch);
-  const [sortBy, setSortBy] = useState<SortType>(initialSort);
-  const [statusFilter, setStatusFilter] = useState<FilterType>(initialStatusFilter);
-  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>(initialPriorityFilter);
-  const [currentView, setCurrentView] = useState<'all' | 'today' | 'upcoming' | 'completed'>(initialView);
+  clientSideFiltering = false,
+}: {
+  onFilter?: (params: TaskFetchParams) => void;
+  onSort?: (sortBy: SortType) => void;
+  clientSideFiltering?: boolean;
+}) {
+  // Track if we're in the initial mount phase
+  const isInitialMount = useRef(true);
+  
+  // Initialize query parameters with nuqs
+  const [search, setSearch] = useQueryState('search', parseAsString.withDefault(''));
+  
+  // Define valid values for our enum types
+  const sortValues = ['newest', 'oldest', 'priority', 'estimatedTime'] as const;
+  const statusValues = ['all', 'active', 'completed'] as const;
+  const priorityValues = ['all', 'low', 'medium', 'high'] as const;
+  
+  // Create parsers with string literals
+  const [sortBy, setSortBy] = useQueryState('sort', 
+    parseAsStringLiteral(sortValues).withDefault('newest' as SortType)
+  );
+  
+  const [statusFilter, setStatusFilter] = useQueryState('status', 
+    parseAsStringLiteral(statusValues).withDefault('all' as FilterType)
+  );
+  
+  const [priorityFilter, setPriorityFilter] = useQueryState('priority', 
+    parseAsStringLiteral(priorityValues).withDefault('all' as PriorityFilter)
+  );
 
-  // Handle search change
-  const handleSearchChange = useCallback((value: string) => {
-    setSearch(value);
-    if (onFilter) {
-      onFilter({
-        search: value,
-        status: statusFilter,
-        priority: priorityFilter !== 'all' ? priorityFilter : undefined,
-        sortBy: sortBy,
-      });
+  // On initial mount, apply the URL parameters to the backend
+  useEffect(() => {
+    // Only run on initial mount
+    if (isInitialMount.current) {
+      // Check if we have URL parameters that differ from defaults
+      const hasUrlParameters = 
+        search !== '' || 
+        sortBy !== 'newest' || 
+        statusFilter !== 'all' || 
+        priorityFilter !== 'all';
+
+      // If we have filters in URL, use them; otherwise send default parameters
+      if (onFilter) {
+        console.log('[useTasksFilters] Initial load with', 
+          hasUrlParameters ? 'URL parameters detected' : 'no URL parameters', 
+          {
+            search,
+            sortBy,
+            statusFilter,
+            priorityFilter
+          }
+        );
+
+        // Construct filter parameters object with only necessary fields
+        const filterParams: TaskFetchParams = {
+          // Always include sortBy as it has a default value
+          sortBy,
+          offset: 0
+        };
+        
+        // Only include other parameters if they have non-default values
+        if (search) filterParams.search = search;
+        if (statusFilter !== 'all') filterParams.status = statusFilter;
+        if (priorityFilter !== 'all') filterParams.priority = priorityFilter;
+        
+        // Trigger filter with appropriate parameters
+        onFilter(filterParams);
+      }
+      
+      isInitialMount.current = false;
     }
-  }, [onFilter, statusFilter, priorityFilter, sortBy]);
+  }, [search, sortBy, statusFilter, priorityFilter, onFilter]);
+
+  // Handle search changes
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value, { history: 'push' });
+    if (onFilter && !isInitialMount.current) {
+      const filterParams: TaskFetchParams = {
+        sortBy,
+        offset: 0
+      };
+      
+      if (value) filterParams.search = value;
+      if (statusFilter !== 'all') filterParams.status = statusFilter;
+      if (priorityFilter !== 'all') filterParams.priority = priorityFilter;
+      
+      onFilter(filterParams);
+    }
+  }, [onFilter, statusFilter, priorityFilter, sortBy, setSearch]);
 
   // Handle search clear
   const handleSearchClear = useCallback(() => {
-    setSearch('');
-    if (onFilter) {
-      onFilter({
-        search: '',
-        status: statusFilter,
-        priority: priorityFilter !== 'all' ? priorityFilter : undefined,
-        sortBy: sortBy,
-      });
+    setSearch('', { history: 'push' });
+    if (onFilter && !isInitialMount.current) {
+      const filterParams: TaskFetchParams = {
+        sortBy,
+        offset: 0
+      };
+      
+      if (statusFilter !== 'all') filterParams.status = statusFilter;
+      if (priorityFilter !== 'all') filterParams.priority = priorityFilter;
+      
+      onFilter(filterParams);
     }
-  }, [onFilter, statusFilter, priorityFilter, sortBy]);
+  }, [onFilter, statusFilter, priorityFilter, sortBy, setSearch]);
 
-  // Handle sort change
+  // Handle sort changes
   const handleSortChange = useCallback((value: SortType) => {
-    setSortBy(value);
-    if (onSort) {
-      onSort(value);
-    }
-    if (onFilter) {
-      onFilter({
-        search,
-        status: statusFilter,
-        priority: priorityFilter !== 'all' ? priorityFilter : undefined,
-        sortBy: value,
-      });
-    }
-  }, [onSort, onFilter, search, statusFilter, priorityFilter]);
-
-  // Handle status filter change
-  const handleStatusFilterChange = useCallback((value: FilterType) => {
-    setStatusFilter(value);
-    if (onFilter) {
-      onFilter({
-        search,
-        status: value,
-        priority: priorityFilter !== 'all' ? priorityFilter : undefined,
-        sortBy: sortBy,
-      });
-    }
-  }, [onFilter, search, priorityFilter, sortBy]);
-
-  // Handle priority filter change
-  const handlePriorityFilterChange = useCallback((value: PriorityFilter) => {
-    setPriorityFilter(value);
-    if (onFilter) {
-      onFilter({
-        search,
-        status: statusFilter,
-        priority: value !== 'all' ? value : undefined,
-        sortBy: sortBy,
-      });
-    }
-  }, [onFilter, search, statusFilter, sortBy]);
-
-  // Handle clear filters
-  const handleClearFilters = useCallback(() => {
-    // Reset all filter states
-    setStatusFilter('all');
-    setPriorityFilter('all');
+    setSortBy(value, { history: 'push' });
     
-    if (onFilter) {
-      onFilter({
-        search, // Keep the search term as is
-        status: undefined, // Clear status filter
-        priority: undefined, // Clear priority filter
-        sortBy, // Keep the current sort
-        offset: 0, // Reset pagination
-      });
+    if (!isInitialMount.current) {
+      if (onSort) {
+        onSort(value);
+      }
+      
+      if (onFilter) {
+        const filterParams: TaskFetchParams = {
+          sortBy: value,
+          offset: 0
+        };
+        
+        if (search) filterParams.search = search;
+        if (statusFilter !== 'all') filterParams.status = statusFilter;
+        if (priorityFilter !== 'all') filterParams.priority = priorityFilter;
+        
+        onFilter(filterParams);
+      }
     }
-  }, [onFilter, search, sortBy]);
+  }, [onFilter, onSort, search, statusFilter, priorityFilter, setSortBy]);
 
-  // Client-side filtering and sorting function
-  const filterTasks = useCallback((tasks: Task[]): Task[] => {
-    if (!clientSideFiltering) return tasks;
+  // Handle status filter changes
+  const handleStatusFilterChange = useCallback((value: FilterType) => {
+    setStatusFilter(value, { history: 'push' });
+    if (onFilter && !isInitialMount.current) {
+      const filterParams: TaskFetchParams = {
+        sortBy,
+        offset: 0
+      };
+      
+      if (search) filterParams.search = search;
+      if (value !== 'all') filterParams.status = value;
+      if (priorityFilter !== 'all') filterParams.priority = priorityFilter;
+      
+      onFilter(filterParams);
+    }
+  }, [onFilter, search, priorityFilter, sortBy, setStatusFilter]);
 
-    let filtered = [...tasks];
+  // Handle priority filter changes
+  const handlePriorityFilterChange = useCallback((value: PriorityFilter) => {
+    setPriorityFilter(value, { history: 'push' });
+    if (onFilter && !isInitialMount.current) {
+      const filterParams: TaskFetchParams = {
+        sortBy,
+        offset: 0
+      };
+      
+      if (search) filterParams.search = search;
+      if (statusFilter !== 'all') filterParams.status = statusFilter;
+      if (value !== 'all') filterParams.priority = value;
+      
+      onFilter(filterParams);
+    }
+  }, [onFilter, search, statusFilter, sortBy, setPriorityFilter]);
 
-    // Apply search filter
-    if (search) {
-      const searchLower = search.toLowerCase();
-      filtered = filtered.filter(
-        task => 
+  // Handle clear all filters
+  const handleClearFilters = useCallback(() => {
+    setSearch('', { history: 'push' });
+    setStatusFilter('all', { history: 'push' });
+    setPriorityFilter('all', { history: 'push' });
+    setSortBy('newest', { history: 'push' });
+    
+    if (!isInitialMount.current) {
+      if (onFilter) {
+        const filterParams: TaskFetchParams = {
+          sortBy: 'newest',
+          offset: 0
+        };
+        
+        onFilter(filterParams);
+      }
+      
+      if (onSort) {
+        onSort('newest');
+      }
+    }
+  }, [onFilter, onSort, setSearch, setStatusFilter, setPriorityFilter, setSortBy]);
+
+  // Client-side filter function
+  const filterTasks = useMemo(() => {
+    if (!clientSideFiltering) {
+      return (tasks: Task[]) => tasks;
+    }
+
+    return (tasks: Task[]) => {
+      let filtered = [...tasks];
+
+      // Apply search filter
+      if (search) {
+        const searchLower = search.toLowerCase();
+        filtered = filtered.filter(task => 
           task.title.toLowerCase().includes(searchLower) || 
           (task.description && task.description.toLowerCase().includes(searchLower))
-      );
-    }
-
-    // Apply status filter
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(task => 
-        statusFilter === 'completed' ? task.completed : !task.completed
-      );
-    }
-
-    // Apply priority filter
-    if (priorityFilter !== 'all') {
-      filtered = filtered.filter(task => task.priority === priorityFilter);
-    }
-
-    // Apply sorting
-    filtered.sort((a, b) => {
-      if (sortBy === 'newest') {
-        return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
-      } else if (sortBy === 'oldest') {
-        return new Date(a.createdAt || '').getTime() - new Date(b.createdAt || '').getTime();
-      } else if (sortBy === 'priority') {
-        const priorityOrder = { high: 0, medium: 1, low: 2 };
-        return priorityOrder[a.priority] - priorityOrder[b.priority];
-      } else if (sortBy === 'estimatedTime') {
-        const getTimeInMinutes = (time: string | undefined) => {
-          if (!time) return 0;
-          const [hours, minutes] = time.split(':').map(Number);
-          return hours * 60 + minutes;
-        };
-        return getTimeInMinutes(a.estimatedTime) - getTimeInMinutes(b.estimatedTime);
+        );
       }
-      return 0;
-    });
 
-    return filtered;
-  }, [search, statusFilter, priorityFilter, sortBy, clientSideFiltering]);
+      // Apply status filter
+      if (statusFilter !== 'all') {
+        filtered = filtered.filter(task => 
+          statusFilter === 'completed' ? task.completed : !task.completed
+        );
+      }
 
-  // Set view handler
-  const setView = useCallback((view: 'all' | 'today' | 'upcoming' | 'completed') => {
-    setCurrentView(view);
-    
-    // Update status filter based on view
-    if (view === 'completed') {
-      setStatusFilter('completed');
-    } else if (view === 'all') {
-      setStatusFilter('all');
-    } else {
-      setStatusFilter('active');
-    }
-    
-    // If we have an external filter handler, call it
-    if (onFilter) {
-      onFilter({
-        search,
-        status: view === 'completed' ? 'completed' : view === 'all' ? undefined : 'active',
-        priority: priorityFilter !== 'all' ? priorityFilter : undefined,
-        sortBy: sortBy,
-        dateFilter: view === 'today' ? 'today' : view === 'upcoming' ? 'upcoming' : undefined,
-      });
-    }
-  }, [onFilter, search, priorityFilter, sortBy]);
+      // Apply priority filter
+      if (priorityFilter !== 'all') {
+        filtered = filtered.filter(task => task.priority === priorityFilter);
+      }
 
-  // Calculate task statistics
-  const calculateTaskStats = useCallback((tasks: Task[]) => {
-    const all = tasks.length;
-    const active = tasks.filter(task => !task.completed).length;
-    const completed = tasks.filter(task => task.completed).length;
-    
-    // For today and upcoming, we would ideally use date filtering
-    // This is a simplified version that would be replaced with proper date logic
-    const today = Math.floor(active * 0.4); // Simplified calculation
-    const upcoming = Math.floor(active * 0.6); // Simplified calculation
-    const high = tasks.filter(task => task.priority === 'high').length;
-    
-    return { all, active, completed, today, upcoming, high };
-  }, []);
-
-  // Memoize task stats
-  const taskStats = useMemo(() => {
-    return calculateTaskStats(clientSideFiltering ? [] : []);
-  }, [calculateTaskStats, clientSideFiltering]);
+      return filtered;
+    };
+  }, [clientSideFiltering, search, statusFilter, priorityFilter]);
 
   return {
     search,
     sortBy,
     statusFilter,
     priorityFilter,
-    currentView,
-    taskStats,
     handleSearchChange,
     handleSearchClear,
     handleSortChange,
@@ -248,6 +238,5 @@ export function useTasksFilters({
     handlePriorityFilterChange,
     handleClearFilters,
     filterTasks,
-    setView,
   };
 } 

@@ -12,6 +12,7 @@ interface EditableFieldProps {
   onSave: (value: string) => void;
   multiline?: boolean;
   className?: string;
+  hintText?: string;
 }
 
 export const EditableField = ({
@@ -21,6 +22,7 @@ export const EditableField = ({
   onSave,
   multiline = false,
   className,
+  hintText,
 }: EditableFieldProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [fieldValue, setFieldValue] = useState(value || "");
@@ -45,6 +47,9 @@ export const EditableField = ({
 
       {isEditing ? (
         <div className="space-y-2">
+          {hintText && (
+            <p className="text-sm text-muted-foreground mb-2 italic">{hintText}</p>
+          )}
           {multiline ? (
             <Textarea
               value={fieldValue}

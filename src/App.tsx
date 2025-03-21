@@ -2,6 +2,7 @@ import { Outlet } from "react-router-dom";
 import { ThemeProvider } from "./app/providers/theme-provider";
 import { I18nProvider } from "./app/providers/i18n-provider";
 import { AuthProvider } from "./app/providers/auth-provider";
+import { NuqsProvider } from "./app/providers/nuqs-provider";
 import { BackgroundEffects } from "./shared/ui/background-effects";
 import { Header } from "./widgets/header";
 import { Footer } from "./widgets/footer";
@@ -26,33 +27,35 @@ function App() {
     <ErrorBoundary>
       <HelmetProvider>
         <I18nProvider>
-          <ThemeProvider defaultTheme="dark" storageKey="ai-todo-theme">
-            <AuthProvider>
-              <div className="min-h-screen bg-background text-foreground flex flex-col relative overflow-hidden">
-                <BackgroundEffects />
-                
-                <main className="flex-1 flex overflow-hidden relative">
-                  <ErrorBoundary>
-                    <SplitLayout>
-                      <div className="flex flex-col flex-1 h-full">
-                        <Header />
-                        <div className="flex-1 overflow-auto">
-                          <div className="container mx-auto p-4 md:p-6">
-                            <Outlet />
+          <NuqsProvider>
+            <ThemeProvider defaultTheme="dark" storageKey="ai-todo-theme">
+              <AuthProvider>
+                <div className="min-h-screen bg-background text-foreground flex flex-col relative overflow-hidden">
+                  <BackgroundEffects />
+                  
+                  <main className="flex-1 flex overflow-hidden relative">
+                    <ErrorBoundary>
+                      <SplitLayout>
+                        <div className="flex flex-col flex-1 h-full">
+                          <Header />
+                          <div className="flex-1 overflow-auto">
+                            <div className="container mx-auto p-4 md:p-6">
+                              <Outlet />
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </SplitLayout>
-                  </ErrorBoundary>
-                </main>
-                
-                <Footer />
+                      </SplitLayout>
+                    </ErrorBoundary>
+                  </main>
+                  
+                  <Footer />
 
-                {/* Toast Notifications */}
-                <Toaster />
-              </div>
-            </AuthProvider>
-          </ThemeProvider>
+                  {/* Toast Notifications */}
+                  <Toaster />
+                </div>
+              </AuthProvider>
+            </ThemeProvider>
+          </NuqsProvider>
         </I18nProvider>
       </HelmetProvider>
     </ErrorBoundary>

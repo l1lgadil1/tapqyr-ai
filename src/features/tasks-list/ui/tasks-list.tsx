@@ -26,7 +26,7 @@ export function TasksList({
   onLoadMore,
   updatingTaskIds = new Set(),
 }: TasksListProps) {
-  // Use the tasks filters hook
+  // Use the tasks filters hook with nuqs for persisting state in URL
   const {
     search,
     sortBy,
@@ -91,7 +91,7 @@ export function TasksList({
   const renderHeader = () => (
     <>
       <TasksSearch
-        value={search}
+        value={search || ""}
         onChange={handleSearchChange}
         onClear={handleSearchClear}
       />
@@ -110,8 +110,6 @@ export function TasksList({
       </div>
     </>
   );
-
-  console.log(isLoading,isLoadingMore);
 
   // Render content with tasks list
   const renderContent = () => {
