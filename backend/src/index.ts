@@ -96,4 +96,15 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
+// Log OpenAI configuration on startup for debugging
+logger.info('=== Environment Variables Debug ===');
+logger.info(`NODE_ENV: ${process.env.NODE_ENV}`);
+const apiKey = config.openai.apiKey;
+const maskedKey = apiKey ? 
+  `${apiKey.substring(0, 7)}...${apiKey.substring(apiKey.length - 4)}` : 
+  'not set';
+logger.info(`OpenAI API Key: ${maskedKey}`);
+logger.info(`OpenAI Assistant ID: ${config.openai.assistantId}`);
+logger.info('=== End Environment Variables Debug ===');
+
 export default app; 

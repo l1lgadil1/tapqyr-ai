@@ -19,15 +19,25 @@ class AssistantController {
       .withMessage('Message is required')
       .isString()
       .withMessage('Message must be a string'),
-    body('threadId')
-      .optional()
-      .isString()
-      .withMessage('Thread ID must be a string if provided'),
   ];
 
   /**
+   * Extract text content from assistant response
+   */
+  private extractTextFromResponse(response: any): string {
+    if (!response || !response.content) {
+      return '';
+    }
+
+    return response.content
+      .filter((content: any) => content.type === 'text')
+      .map((content: any) => content.text.value)
+      .join('\n');
+  }
+
+  /**
    * Handle chat message request
-   * Creates a new thread if none provided, sends message to assistant, and returns response
+   * Automatically manages the thread on the server side, sends message to assistant, and returns response
    */
   async chatMessage(req: Request, res: Response) {
     try {
@@ -37,7 +47,7 @@ class AssistantController {
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const { message, threadId } = req.body;
+      const { message } = req.body;
       const userId = req.user?.userId;
 
       if (!userId) {
@@ -46,27 +56,20 @@ class AssistantController {
 
       logger.info(`Processing chat message for user ${userId}`);
 
-      // Get or create thread ID
-      const actualThreadId = threadId || await assistantService.getOrCreateThreadForUser(userId);
+      // Get or create thread for this user (managed server-side)
+      const threadId = await assistantService.getOrCreateThreadForUser(userId);
 
       // Send message to assistant
-      const response = await assistantService.sendMessage(userId, actualThreadId, message);
+      const response = await assistantService.sendMessage(userId, threadId, message);
 
-      // Extract content from response
-      const content = response.content.map((item: any) => {
-        if (item.type === 'text') {
-          return item.text.value;
-        }
-        return null;
-      }).filter(Boolean).join('\n');
-
+      // Return response
       return res.status(200).json({
-        threadId: actualThreadId,
-        message: content,
+        message: response.content[0]?.text?.value || '',
         response
       });
+
     } catch (error) {
-      logger.error(`Error in chat message: ${(error as Error).message}`);
+      logger.error(`Error processing message: ${(error as Error).message}`);
       return res.status(500).json({
         message: 'Failed to process message',
         error: (error as Error).message
@@ -80,21 +83,22 @@ class AssistantController {
   async createThread(req: Request, res: Response) {
     try {
       const userId = req.user?.userId;
-
+      
       if (!userId) {
         return res.status(401).json({ message: 'Unauthorized - User ID not found' });
       }
-
+      
       logger.info(`Creating new thread for user ${userId}`);
-
+      
+      // Create a new thread using the assistant service
       const threadId = await assistantService.createThread(userId);
-
+      
       return res.status(200).json({
         threadId,
         message: 'Thread created successfully'
       });
     } catch (error) {
-      logger.error(`Error creating thread: ${(error as Error).message}`);
+      logger.error(`Error in create thread: ${(error as Error).message}`);
       return res.status(500).json({
         message: 'Failed to create thread',
         error: (error as Error).message
@@ -103,9 +107,7 @@ class AssistantController {
   }
 
   /**
-   * Generate tasks based on a user prompt
-   * This is a simplified version - in a real implementation you would use 
-   * the assistant to generate the tasks directly
+   * Generate tasks based on user prompt
    */
   async generateTasks(req: Request, res: Response) {
     try {
@@ -114,29 +116,29 @@ class AssistantController {
       if (!errors.isEmpty()) {
         return res.status(400).json({ errors: errors.array() });
       }
-
+      
       const { prompt } = req.body;
       const userId = req.user?.userId;
-
+      
       if (!userId) {
         return res.status(401).json({ message: 'Unauthorized - User ID not found' });
       }
-
-      logger.info(`Generating tasks for user ${userId} with prompt: ${prompt}`);
-
-      // Get or create thread ID for the user
-      const threadId = await assistantService.getOrCreateThreadForUser(userId);
-
-      // Send specific message to assistant to generate tasks
-      const message = `Please generate tasks based on this prompt: ${prompt}. Use the create_task function for each task you generate.`;
       
-      await assistantService.sendMessage(userId, threadId, message);
-
-      // Get the tasks that were created (they will be created by the assistant via function calling)
+      logger.info(`Generating tasks for user ${userId}`);
+      
+      // Get or create thread for this user
+      const threadId = await assistantService.getOrCreateThreadForUser(userId);
+      
+      // Generate tasks using AI assistant
+      await assistantService.sendMessage(userId, threadId, 
+        `Based on the following description, please create appropriate tasks for me: ${prompt}. 
+         Create the tasks using the create_task function.`
+      );
+      
       return res.status(200).json({
-        message: 'Tasks generated successfully',
-        // Note: The tasks themselves are created directly via the function calls
+        message: 'Tasks are being generated. They will appear in your task list shortly.'
       });
+      
     } catch (error) {
       logger.error(`Error generating tasks: ${(error as Error).message}`);
       return res.status(500).json({
@@ -147,40 +149,47 @@ class AssistantController {
   }
 
   /**
-   * Analyze user productivity 
+   * Analyze user productivity
    */
   async analyzeProductivity(req: Request, res: Response) {
     try {
       const userId = req.user?.userId;
-
+      
       if (!userId) {
         return res.status(401).json({ message: 'Unauthorized - User ID not found' });
       }
-
-      const { startDate, endDate } = req.query;
-
-      logger.info(`Analyzing productivity for user ${userId}`);
-
-      // Get or create thread ID for the user
-      const threadId = await assistantService.getOrCreateThreadForUser(userId);
-
-      // Send specific message to assistant to analyze productivity
-      const message = 'Please analyze my productivity and provide recommendations.';
       
-      const response = await assistantService.sendMessage(userId, threadId, message);
+      logger.info(`Analyzing productivity for user ${userId}`);
+      
+      // Get or create thread for this user
+      const threadId = await assistantService.getOrCreateThreadForUser(userId);
+      
+      // Get productivity data
+      const data = await assistantService.analyzeProductivity(userId);
+      
+      // Send a message to the assistant to analyze the data
+      await assistantService.sendMessage(userId, threadId, 
+        `Please analyze my productivity based on the following data: ${JSON.stringify(data)}. 
+         Provide insights and recommendations based on this data.`
+      );
+      
+      // Extract the analysis message
+      const analysis = `Here's an analysis of your productivity over the past ${data.period.days} days:
+      
+Tasks completed: ${data.overview.completedTasks} out of ${data.overview.totalTasks} (${data.overview.completionRate}%).
+Overdue tasks: ${data.overview.overdueTasks}
+Average task completion time: ${data.overview.averageTaskAgeInDays} days
 
-      // Extract content from response
-      const content = response.content.map((item: any) => {
-        if (item.type === 'text') {
-          return item.text.value;
-        }
-        return null;
-      }).filter(Boolean).join('\n');
-
+Key insights:
+- ${data.recommendations[0] || 'No recommendations available'}
+${data.recommendations[1] ? `- ${data.recommendations[1]}` : ''}
+${data.recommendations[2] ? `- ${data.recommendations[2]}` : ''}`;
+      
       return res.status(200).json({
-        analysis: content,
-        message: 'Productivity analyzed successfully'
+        message: 'Productivity analysis complete',
+        analysis: analysis
       });
+      
     } catch (error) {
       logger.error(`Error analyzing productivity: ${(error as Error).message}`);
       return res.status(500).json({

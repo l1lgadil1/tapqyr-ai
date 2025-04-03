@@ -27,14 +27,6 @@ class EmailService {
       logger.info('Email service initialized with SMTP transport');
     } else {
       logger.warn('Email credentials not provided. Email sending is disabled.');
-      
-      // Create a mock transporter for development
-      if (config.env === 'development') {
-        this.transporter = nodemailer.createTransport({
-          jsonTransport: true
-        });
-        logger.info('Mock email transport created for development');
-      }
     }
   }
 
@@ -47,11 +39,10 @@ class EmailService {
    */
   async sendEmail(to: string, subject: string, html: string): Promise<boolean> {
     try {
-      // If transporter is not initialized, log the email content and return success
+      // If transporter is not initialized, log warning and return false
       if (!this.transporter) {
-        logger.info(`[EMAIL DISABLED] Would send email to ${to} with subject: ${subject}`);
-        logger.debug(`[EMAIL CONTENT] ${html}`);
-        return true;
+        logger.warn(`Cannot send email to ${to} - email service not configured`);
+        return false;
       }
 
       const mailOptions = {
@@ -61,26 +52,11 @@ class EmailService {
         html,
       };
 
-      const info = await this.transporter.sendMail(mailOptions);
-      
-      if (!this.isEmailConfigured && config.env === 'development') {
-        // For development mock transport, log the email content
-        logger.info(`[DEV EMAIL] Sent to ${to} with subject: ${subject}`);
-        logger.debug(`[DEV EMAIL CONTENT] ${JSON.stringify(info)}`);
-      } else {
-        logger.info(`Email sent to ${to}`);
-      }
-      
+      await this.transporter.sendMail(mailOptions);
+      logger.info(`Email sent to ${to}`);
       return true;
     } catch (error) {
       logger.error('Error sending email:', error);
-      
-      // In development, don't fail if email sending fails
-      if (config.env === 'development') {
-        logger.warn('Email sending failed, but continuing in development mode');
-        return true;
-      }
-      
       return false;
     }
   }

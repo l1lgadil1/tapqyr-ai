@@ -11,7 +11,8 @@
     "test": "jest",
     "create-assistant": "ts-node src/scripts/create-assistant.ts",
     "test:auth": "ts-node src/scripts/test-auth.ts",
-    "cleanup-threads": "ts-node src/scripts/cleanup-duplicate-threads.ts"
+    "cleanup-threads": "ts-node src/scripts/cleanup-duplicate-threads.ts",
+    "cleanup-mock-threads": "ts-node src/scripts/cleanup-mock-threads.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.4.1",

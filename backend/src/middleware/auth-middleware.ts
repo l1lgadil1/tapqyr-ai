@@ -14,6 +14,9 @@ declare global {
   }
 }
 
+// Enable this ONLY for development
+const ALLOW_DEBUG_AUTH = process.env.NODE_ENV === 'development';
+
 /**
  * Middleware to authenticate JWT tokens
  */
@@ -25,6 +28,17 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     
     if (!token) {
       return res.status(401).json({ message: 'Authentication required' });
+    }
+    
+    // DEVELOPMENT ONLY: Special handling for debug tokens
+    if (ALLOW_DEBUG_AUTH && token.startsWith('debug-token-')) {
+      logger.warn('Using debug authentication mode - DO NOT USE IN PRODUCTION');
+      // Set a test user
+      req.user = {
+        userId: 'test-user-id',
+        email: 'test@example.com'
+      };
+      return next();
     }
     
     // Check if token is blacklisted

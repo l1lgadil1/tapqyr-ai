@@ -6,6 +6,15 @@ import memoryService from './memory-service';
 import pendingCallService from './pending-call-service';
 
 const prisma = new PrismaClient();
+
+// Log OpenAI API key configuration (mask most of it for security)
+const apiKey = config.openai.apiKey;
+const maskedKey = apiKey ? 
+  `${apiKey.substring(0, 7)}...${apiKey.substring(apiKey.length - 4)}` : 
+  'not set';
+logger.info(`Initializing OpenAI with API key: ${maskedKey}`);
+logger.info(`Using OpenAI Assistant ID: ${config.openai.assistantId}`);
+
 const openai = new OpenAI({
   apiKey: config.openai.apiKey,
 });
@@ -52,9 +61,16 @@ class AssistantService {
   constructor() {
     this.assistantId = config.openai.assistantId;
     if (!this.assistantId) {
-      logger.warn('OpenAI Assistant ID is not configured. Using fallback implementation.');
-      // We'll continue without throwing an error and use mock responses
+      logger.error('OpenAI Assistant ID is not configured. Please set OPENAI_ASSISTANT_ID in your .env file.');
+      throw new Error('OpenAI Assistant ID is not configured. Please set OPENAI_ASSISTANT_ID in your .env file.');
     }
+    
+    if (!config.openai.apiKey) {
+      logger.error('OpenAI API Key is not configured. Please set OPENAI_API_KEY in your .env file.');
+      throw new Error('OpenAI API Key is not configured. Please set OPENAI_API_KEY in your .env file.');
+    }
+    
+    logger.info('OpenAI Assistant service initialized successfully.');
   }
 
   /**
@@ -64,19 +80,25 @@ class AssistantService {
     try {
       logger.info(`Creating new thread for user ${userId}`);
       
-      // If no assistant ID is configured, use a mock thread ID
-      if (!this.assistantId) {
-        const mockThreadId = `mock-thread-${Date.now()}-${userId}`;
-        logger.info(`Created mock thread with ID: ${mockThreadId}`);
-        return mockThreadId;
-      }
-      
+      // Create a real thread using OpenAI API
       const thread = await openai.beta.threads.create();
-      logger.info(`Thread created with ID: ${thread.id}`);
-      return thread.id;
+      const threadId = thread.id;
+      
+      logger.info(`Thread created with ID: ${threadId}`);
+      
+      // Save the thread ID for the user
+      await prisma.assistantThread.create({
+        data: {
+          userId,
+          threadId,
+          lastUsed: new Date()
+        }
+      });
+      
+      return threadId;
     } catch (error) {
       logger.error(`Error creating thread: ${(error as Error).message}`);
-      throw new Error(`Failed to create conversation thread: ${(error as Error).message}`);
+      throw new Error(`Failed to create thread: ${(error as Error).message}`);
     }
   }
 
@@ -127,12 +149,6 @@ class AssistantService {
   async sendMessage(userId: string, threadId: string, message: string): Promise<any> {
     try {
       logger.info(`Sending message to thread ${threadId} for user ${userId}`);
-      
-      // If no assistant ID is configured, use mock responses
-      if (!this.assistantId) {
-        logger.info('Using mock implementation for the assistant');
-        return this.mockSendMessage(userId, message);
-      }
       
       // Get the user's memory and context
       const userContext = await memoryService.generateAssistantContext(userId);
@@ -223,45 +239,6 @@ class AssistantService {
   }
 
   /**
-   * Mock implementation of sendMessage for when the OpenAI Assistant is not configured
-   */
-  private mockSendMessage(userId: string, message: string): any {
-    // Create a simulated message object that matches the structure expected by the frontend
-    const now = new Date();
-    
-    // Analyze the message to determine an appropriate response
-    let responseContent = "";
-    
-    if (message.toLowerCase().includes('hello') || message.toLowerCase().includes('hi')) {
-      responseContent = "Hello! I'm your AI Assistant. How can I help you with your tasks today?";
-    } else if (message.toLowerCase().includes('task') && (message.toLowerCase().includes('create') || message.toLowerCase().includes('add'))) {
-      responseContent = "I've created a new task for you. You can view it in your task list.";
-      // Simulate creating a task
-      this.createTask(userId, { title: message.replace(/create|add|task/gi, '').trim() || "New Task" }).catch(err => {
-        logger.error(`Error creating mock task: ${err.message}`);
-      });
-    } else if (message.toLowerCase().includes('productivity')) {
-      responseContent = "Based on my analysis, your productivity has been good. You've completed 70% of your tasks this week. Keep up the good work!";
-    } else {
-      responseContent = "I understand your request. Is there anything specific you'd like me to help you with regarding your tasks or productivity?";
-    }
-    
-    return {
-      id: `mock-${Date.now()}`,
-      role: 'assistant',
-      content: [
-        {
-          type: 'text',
-          text: {
-            value: responseContent
-          }
-        }
-      ],
-      created_at: now.getTime() / 1000
-    };
-  }
-
-  /**
    * Wait for a run to complete
    */
   private async waitForRunCompletion(threadId: string, runId: string, maxRetries = 10): Promise<any> {
@@ -348,30 +325,30 @@ class AssistantService {
       let result;
       
       // Execute the appropriate function based on the name
-      switch (functionName) {
-        case 'create_task':
-          result = await this.createTask(userId, functionArgs);
-          break;
-        case 'update_task':
-          result = await this.updateTask(userId, functionArgs);
-          break;
-        case 'delete_task':
-          result = await this.deleteTask(userId, functionArgs);
-          break;
-        case 'get_tasks':
-          result = await this.getTasks(userId, functionArgs);
-          break;
-        case 'analyze_productivity':
-          result = await this.analyzeProductivity(userId, functionArgs);
-          break;
-        default:
-          throw new Error(`Unknown function: ${functionName}`);
-      }
-      
+        switch (functionName) {
+          case 'create_task':
+            result = await this.createTask(userId, functionArgs);
+            break;
+          case 'update_task':
+            result = await this.updateTask(userId, functionArgs);
+            break;
+          case 'delete_task':
+            result = await this.deleteTask(userId, functionArgs);
+            break;
+          case 'get_tasks':
+            result = await this.getTasks(userId, functionArgs);
+            break;
+          case 'analyze_productivity':
+            result = await this.analyzeProductivity(userId, functionArgs);
+            break;
+          default:
+            throw new Error(`Unknown function: ${functionName}`);
+        }
+        
       // Return the result
       return result;
-      
-    } catch (error) {
+        
+      } catch (error) {
       logger.error(`Error executing approved call: ${(error as Error).message}`);
       throw new Error(`Failed to execute approved call: ${(error as Error).message}`);
     }
@@ -388,7 +365,7 @@ class AssistantService {
       
       // Convert the dueDate from string to Date
       const dueDateObj = dueDate ? new Date(dueDate) : null;
-      
+
       // Create the task in the database
       const task = await prisma.todo.create({
         data: {
@@ -428,7 +405,7 @@ class AssistantService {
       const { taskId, title, description, priority, dueDate, completed } = params;
       
       logger.info(`Updating task: ${taskId} for user ${userId}`);
-      
+
       // Verify the task belongs to the user
       const existingTask = await prisma.todo.findFirst({
         where: {
@@ -436,7 +413,7 @@ class AssistantService {
           userId
         }
       });
-      
+
       if (!existingTask) {
         throw new Error(`Task not found or does not belong to user`);
       }
@@ -448,7 +425,7 @@ class AssistantService {
       if (priority !== undefined) updateData.priority = priority;
       if (completed !== undefined) updateData.completed = completed;
       if (dueDate !== undefined) updateData.dueDate = dueDate ? new Date(dueDate) : null;
-      
+
       // Update the task
       const updatedTask = await prisma.todo.update({
         where: { id: taskId },
@@ -482,7 +459,7 @@ class AssistantService {
       const { taskId } = params;
       
       logger.info(`Deleting task: ${taskId} for user ${userId}`);
-      
+
       // Verify the task belongs to the user
       const existingTask = await prisma.todo.findFirst({
         where: {
@@ -490,11 +467,11 @@ class AssistantService {
           userId
         }
       });
-      
+
       if (!existingTask) {
         throw new Error(`Task not found or does not belong to user`);
       }
-      
+
       // Delete the task
       await prisma.todo.delete({
         where: { id: taskId }
@@ -769,7 +746,7 @@ class AssistantService {
       throw new Error(`Failed to analyze productivity: ${(error as Error).message}`);
     }
   }
-  
+
   /**
    * Generate personalized productivity recommendations
    */
@@ -858,17 +835,11 @@ class AssistantService {
   }
 
   /**
-   * Get chat history for a user
+   * Get chat history for a user's thread
    */
   async getChatHistory(userId: string, threadId: string, limit: number = 20): Promise<any[]> {
     try {
-      logger.info(`Getting chat history for user ${userId}, thread ${threadId}`);
-      
-      // If no assistant ID is configured, return mock history
-      if (!this.assistantId) {
-        logger.info('Using mock implementation for chat history');
-        return this.mockChatHistory(userId);
-      }
+      logger.info(`Getting chat history for thread ${threadId} for user ${userId}`);
       
       // Retrieve messages from the thread
       const messages = await openai.beta.threads.messages.list(threadId, {
@@ -886,35 +857,6 @@ class AssistantService {
       logger.error(`Error getting chat history: ${(error as Error).message}`);
       throw new Error(`Failed to get chat history: ${(error as Error).message}`);
     }
-  }
-  
-  /**
-   * Mock implementation of getChatHistory
-   */
-  private mockChatHistory(userId: string): any[] {
-    const now = Date.now();
-    const hour = 60 * 60 * 1000;
-    
-    return [
-      {
-        id: `mock-${now}-1`,
-        role: 'assistant',
-        content: [{ type: 'text', text: { value: 'How can I help you with your tasks today?' } }],
-        createdAt: new Date(now - hour).toISOString()
-      },
-      {
-        id: `mock-${now}-2`,
-        role: 'user',
-        content: [{ type: 'text', text: { value: 'I need to organize my work for the week' } }],
-        createdAt: new Date(now - hour + 5 * 60 * 1000).toISOString()
-      },
-      {
-        id: `mock-${now}-3`,
-        role: 'assistant',
-        content: [{ type: 'text', text: { value: 'I can help with that. Let me create some tasks for you based on your goals.' } }],
-        createdAt: new Date(now - hour + 10 * 60 * 1000).toISOString()
-      }
-    ];
   }
 
   /**
