@@ -11,6 +11,50 @@ import { HelmetProvider } from "react-helmet-async";
 import { useTranslation } from 'react-i18next';
 import { Toaster } from "./shared/ui/toaster";
 import { SplitLayout } from "./widgets/layout";
+import { useEffect } from "react";
+import { useToast } from "./shared/ui/use-toast";
+import { useNavigate } from "react-router-dom";
+
+// Define custom event type for auth errors
+interface AuthErrorEvent extends CustomEvent {
+  detail: {
+    message: string;
+    statusCode?: number;
+  };
+}
+
+// Global error handler for axios errors
+const GlobalErrorHandler = () => {
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    // Create event for auth errors
+    const handleAuthError = (event: AuthErrorEvent) => {
+      // Clear authentication token on auth error
+      localStorage.removeItem('token');
+      localStorage.removeItem('authToken');
+      
+      toast({
+        title: "Authentication Error",
+        description: event.detail?.message || "Authentication required. Please log in again.",
+        variant: "destructive",
+      });
+      
+      // Redirect to login page
+      navigate('/auth/login', { replace: true });
+    };
+    
+    // Listen for auth error events
+    window.addEventListener('auth-error', handleAuthError as EventListener);
+    
+    return () => {
+      window.removeEventListener('auth-error', handleAuthError as EventListener);
+    };
+  }, [toast, navigate]);
+  
+  return null;
+};
 
 function App() {
   const { i18n } = useTranslation();
@@ -52,6 +96,7 @@ function App() {
 
                   {/* Toast Notifications */}
                   <Toaster />
+                  <GlobalErrorHandler />
                 </div>
               </AuthProvider>
             </ThemeProvider>

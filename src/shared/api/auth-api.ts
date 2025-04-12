@@ -116,6 +116,16 @@ api.interceptors.response.use(
     } catch (refreshError) {
       // If refresh fails, clear tokens and reject
       localStorage.removeItem(TOKEN_KEY);
+      
+      // Dispatch auth error event
+      const authErrorEvent = new CustomEvent('auth-error', {
+        detail: {
+          message: 'Authentication required. Please log in again.',
+          statusCode: 401
+        }
+      });
+      window.dispatchEvent(authErrorEvent);
+      
       return Promise.reject(refreshError);
     } finally {
       isRefreshing = false;

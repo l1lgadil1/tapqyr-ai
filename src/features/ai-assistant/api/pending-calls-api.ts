@@ -2,7 +2,18 @@
  * Get the current auth token from localStorage
  */
 function getAuthToken(): string | null {
-  return localStorage.getItem('authToken');
+  return localStorage.getItem('token') || localStorage.getItem('authToken');
+}
+
+// Helper to dispatch authentication errors
+function dispatchAuthError(message: string) {
+  const authErrorEvent = new CustomEvent('auth-error', {
+    detail: {
+      message: message || 'Authentication required. Please log in again.',
+      statusCode: 401
+    }
+  });
+  window.dispatchEvent(authErrorEvent);
 }
 
 // Types for pending function calls
@@ -53,6 +64,7 @@ export async function getPendingFunctionCalls(): Promise<PendingFunctionCall[]> 
   const token = getAuthToken();
   
   if (!token) {
+    dispatchAuthError('Authentication required');
     throw new Error('Authentication required');
   }
   
@@ -66,6 +78,9 @@ export async function getPendingFunctionCalls(): Promise<PendingFunctionCall[]> 
     
     if (!response.ok) {
       const errorMessage = await parseErrorResponse(response);
+      if (response.status === 401) {
+        dispatchAuthError(errorMessage);
+      }
       throw new Error(errorMessage);
     }
     
@@ -83,6 +98,7 @@ export async function approveFunctionCall(callId: string): Promise<ApproveCallRe
   const token = getAuthToken();
   
   if (!token) {
+    dispatchAuthError('Authentication required');
     throw new Error('Authentication required');
   }
   
@@ -97,6 +113,9 @@ export async function approveFunctionCall(callId: string): Promise<ApproveCallRe
     
     if (!response.ok) {
       const errorMessage = await parseErrorResponse(response);
+      if (response.status === 401) {
+        dispatchAuthError(errorMessage);
+      }
       throw new Error(errorMessage);
     }
     
@@ -114,6 +133,7 @@ export async function rejectFunctionCall(callId: string): Promise<RejectCallResp
   const token = getAuthToken();
   
   if (!token) {
+    dispatchAuthError('Authentication required');
     throw new Error('Authentication required');
   }
   
@@ -128,6 +148,9 @@ export async function rejectFunctionCall(callId: string): Promise<RejectCallResp
     
     if (!response.ok) {
       const errorMessage = await parseErrorResponse(response);
+      if (response.status === 401) {
+        dispatchAuthError(errorMessage);
+      }
       throw new Error(errorMessage);
     }
     

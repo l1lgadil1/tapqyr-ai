@@ -5,7 +5,19 @@
  * Get the current auth token from localStorage
  */
 function getAuthToken(): string | null {
-  return localStorage.getItem('authToken');
+  // Check both potential token keys for backward compatibility
+  return localStorage.getItem('token') || localStorage.getItem('authToken');
+}
+
+// Helper to dispatch authentication errors
+function dispatchAuthError(message: string) {
+  const authErrorEvent = new CustomEvent('auth-error', {
+    detail: {
+      message: message || 'Authentication required. Please log in again.',
+      statusCode: 401
+    }
+  });
+  window.dispatchEvent(authErrorEvent);
 }
 
 // Types for API communication
@@ -63,6 +75,7 @@ export async function sendChatMessage(message: string, threadId?: string): Promi
   const token = getAuthToken();
   
   if (!token) {
+    dispatchAuthError('Authentication required');
     throw new Error('Authentication required');
   }
   
@@ -78,6 +91,9 @@ export async function sendChatMessage(message: string, threadId?: string): Promi
     
     if (!response.ok) {
       const errorMessage = await parseErrorResponse(response);
+      if (response.status === 401) {
+        dispatchAuthError(errorMessage);
+      }
       throw new Error(errorMessage);
     }
     
@@ -95,6 +111,7 @@ export async function createThread(): Promise<{ threadId: string; message: strin
   const token = getAuthToken();
   
   if (!token) {
+    dispatchAuthError('Authentication required');
     throw new Error('Authentication required');
   }
   
@@ -109,6 +126,9 @@ export async function createThread(): Promise<{ threadId: string; message: strin
     
     if (!response.ok) {
       const errorMessage = await parseErrorResponse(response);
+      if (response.status === 401) {
+        dispatchAuthError(errorMessage);
+      }
       throw new Error(errorMessage);
     }
     
@@ -127,6 +147,7 @@ export async function generateTasks(prompt: string): Promise<{ message: string }
   const token = getAuthToken();
   
   if (!token) {
+    dispatchAuthError('Authentication required');
     throw new Error('Authentication required');
   }
   
@@ -142,6 +163,9 @@ export async function generateTasks(prompt: string): Promise<{ message: string }
     
     if (!response.ok) {
       const errorMessage = await parseErrorResponse(response);
+      if (response.status === 401) {
+        dispatchAuthError(errorMessage);
+      }
       throw new Error(errorMessage);
     }
     
@@ -159,6 +183,7 @@ export async function analyzeProductivity(): Promise<ProductivityAnalysis> {
   const token = getAuthToken();
   
   if (!token) {
+    dispatchAuthError('Authentication required');
     throw new Error('Authentication required');
   }
   
@@ -172,6 +197,9 @@ export async function analyzeProductivity(): Promise<ProductivityAnalysis> {
     
     if (!response.ok) {
       const errorMessage = await parseErrorResponse(response);
+      if (response.status === 401) {
+        dispatchAuthError(errorMessage);
+      }
       throw new Error(errorMessage);
     }
     
