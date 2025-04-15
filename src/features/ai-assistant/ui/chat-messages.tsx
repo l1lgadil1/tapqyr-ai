@@ -3,7 +3,20 @@
 import { forwardRef, useRef, useEffect } from 'react';
 import { useAssistantStore, AssistantMessage } from '../model/assistant-store';
 import { cn } from '../../../shared/lib/utils';
-import { CircleAlert, Bot, User } from 'lucide-react';
+import { CircleAlert, Bot, User, CheckCircle2, AlertCircle } from 'lucide-react';
+
+interface ExecutedFunction {
+  function: string;
+  args: Record<string, unknown>;
+  result: {
+    id?: string;
+    title?: string;
+    count?: number;
+    analysisGenerated?: boolean;
+    success?: boolean;
+    [key: string]: unknown;
+  };
+}
 
 interface MessageProps {
   message: {
@@ -11,42 +24,263 @@ interface MessageProps {
     content: string;
     isUser: boolean;
     timestamp: Date;
+    executedFunctions?: ExecutedFunction[];
+    hasPendingCalls?: boolean;
+    pendingCallsCount?: number;
   };
 }
 
-const Message = ({ message }: MessageProps) => (
-  <div 
-    className={cn(
-      "flex items-start gap-3 mb-4 max-w-[90%]",
-      message.isUser ? "ml-auto flex-row-reverse" : ""
-    )}
-  >
-    <div className={cn(
-      "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center",
-      message.isUser ? "bg-primary" : "bg-secondary/50"
-    )}>
-      {message.isUser ? (
-        <User className="h-4 w-4 text-primary-foreground" />
-      ) : (
-        <Bot className="h-4 w-4 text-foreground" />
+// Component to display executed functions
+const ExecutedFunctions = ({ functions }: { functions: ExecutedFunction[] | undefined }) => {
+  if (!functions || functions.length === 0) return null;
+  
+  // Check if there's a task creation or update function
+  const hasTaskCreation = functions.some(fn => fn.function === 'create_task');
+  const hasTaskUpdate = functions.some(fn => fn.function === 'update_task');
+  const hasTaskDelete = functions.some(fn => fn.function === 'delete_task');
+  const hasAnalysis = functions.some(fn => fn.function === 'analyze_productivity');
+  
+  return (
+    <div className="mt-4 space-y-3 pt-3 border-t border-emerald-500/20">
+      {/* Actions summary section */}
+      <div className="flex flex-wrap gap-2">
+        {hasTaskCreation && (
+          <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-full px-2 py-1 text-xs inline-flex items-center gap-1">
+            <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+            <span className="text-emerald-700 dark:text-emerald-400 font-medium">Task Created</span>
+          </div>
+        )}
+        
+        {hasTaskUpdate && (
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-full px-2 py-1 text-xs inline-flex items-center gap-1">
+            <CheckCircle2 className="h-3 w-3 text-blue-500" />
+            <span className="text-blue-700 dark:text-blue-400 font-medium">Task Updated</span>
+          </div>
+        )}
+        
+        {hasTaskDelete && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-full px-2 py-1 text-xs inline-flex items-center gap-1">
+            <CheckCircle2 className="h-3 w-3 text-red-500" />
+            <span className="text-red-700 dark:text-red-400 font-medium">Task Deleted</span>
+          </div>
+        )}
+        
+        {hasAnalysis && (
+          <div className="bg-purple-500/10 border border-purple-500/30 rounded-full px-2 py-1 text-xs inline-flex items-center gap-1">
+            <CheckCircle2 className="h-3 w-3 text-purple-500" />
+            <span className="text-purple-700 dark:text-purple-400 font-medium">Analysis Performed</span>
+          </div>
+        )}
+      </div>
+      
+      {/* Details of executed functions */}
+      <div className="space-y-2">
+        {functions.map((fn, index) => {
+          // Определим цвет в зависимости от типа функции
+          let borderColor = 'border-emerald-500/20';
+          let bgColor = 'bg-emerald-500/5';
+          let textColor = 'text-emerald-700 dark:text-emerald-400';
+          
+          if (fn.function === 'delete_task') {
+            borderColor = 'border-red-500/20';
+            bgColor = 'bg-red-500/5';
+            textColor = 'text-red-700 dark:text-red-400';
+          } else if (fn.function === 'update_task') {
+            borderColor = 'border-blue-500/20';
+            bgColor = 'bg-blue-500/5';
+            textColor = 'text-blue-700 dark:text-blue-400';
+          }
+          
+          return (
+            <div key={index} className={`rounded-md bg-background/50 border ${borderColor} overflow-hidden`}>
+              <div className={`${bgColor} px-3 py-1.5 flex items-center justify-between border-b ${borderColor}`}>
+                <div className="flex items-center gap-1.5">
+                  <CheckCircle2 className={`h-3.5 w-3.5 ${textColor}`} />
+                  <span className={`font-medium text-xs ${textColor}`}>{fn.function}</span>
+                </div>
+                <span className="text-[10px] text-muted-foreground bg-background/50 px-1.5 py-0.5 rounded">executed</span>
+              </div>
+              
+              <div className="p-2 text-xs">
+                {fn.function === 'create_task' && fn.result.id && (
+                  <div className="flex flex-col">
+                    <span className="font-medium">Created task:</span>
+                    <span className="mt-1 bg-background p-1.5 rounded border border-border">
+                      <strong>{fn.result.title || 'Untitled'}</strong>
+                    </span>
+                    <span className="mt-1 text-muted-foreground text-[10px]">The task has been added to your task list</span>
+                  </div>
+                )}
+                
+                {fn.function === 'update_task' && fn.result.id && (
+                  <div className="flex flex-col">
+                    <span className="font-medium">Updated task:</span>
+                    <span className="mt-1 bg-background p-1.5 rounded border border-border">
+                      <strong>{fn.result.title || 'Untitled'}</strong>
+                    </span>
+                  </div>
+                )}
+                
+                {fn.function === 'delete_task' && fn.result.success && (
+                  <div className="flex flex-col">
+                    <span className="font-medium">Deleted task:</span>
+                    <span className="mt-1 bg-background p-1.5 rounded border border-border text-red-600">
+                      Task was successfully deleted
+                    </span>
+                  </div>
+                )}
+                
+                {fn.function === 'get_tasks' && typeof fn.result.count === 'number' && (
+                  <div className="flex flex-col">
+                    <span className="font-medium">Retrieved {fn.result.count} tasks</span>
+                  </div>
+                )}
+                
+                {fn.function === 'analyze_productivity' && fn.result.analysisGenerated && (
+                  <div className="flex flex-col">
+                    <span className="font-medium">Generated productivity analysis</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// Component to display pending calls notification
+const PendingCallsNotification = ({ count }: { count: number }) => {
+  if (!count) return null;
+  
+  // Функция для открытия панели ожидающих подтверждения действий
+  const openPendingCallsPanel = () => {
+    // Найдем элемент с pending calls и прокрутим к нему
+    const pendingCallsElement = document.querySelector('.pending-calls-container');
+    if (pendingCallsElement) {
+      pendingCallsElement.scrollIntoView({ behavior: 'smooth' });
+      // Добавим временное выделение для привлечения внимания
+      pendingCallsElement.classList.add('highlight-panel');
+      setTimeout(() => {
+        pendingCallsElement.classList.remove('highlight-panel');
+      }, 1500);
+    }
+  };
+  
+  return (
+    <div className="mt-4 space-y-3 pt-3 border-t border-amber-500/20">
+      <div className="flex flex-wrap gap-2">
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-full px-2 py-1 text-xs inline-flex items-center gap-1">
+          <AlertCircle className="h-3 w-3 text-amber-500" />
+          <span className="text-amber-700 dark:text-amber-400 font-medium">Требуется подтверждение</span>
+        </div>
+      </div>
+      
+      <div className="rounded-md bg-background/50 border border-amber-500/20 overflow-hidden">
+        <div className="bg-amber-500/5 px-3 py-1.5 border-b border-amber-500/10">
+          <div className="flex items-center gap-1.5">
+            <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
+            <span className="font-medium text-xs text-amber-700 dark:text-amber-400">
+              {count} действ{count !== 1 ? 'ий' : 'ие'} ожида{count !== 1 ? 'ют' : 'ет'} подтверждения
+            </span>
+          </div>
+        </div>
+        
+        <div className="p-2 text-xs">
+          <p className="text-muted-foreground">
+            Для продолжения необходимо подтвердить или отклонить запрошенные действия.
+          </p>
+          <button 
+            onClick={openPendingCallsPanel}
+            className="mt-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 px-2 py-1 rounded text-xs font-medium transition-colors"
+          >
+            Показать ожидающие действия
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const Message = ({ message }: MessageProps) => {
+  // Check if message has executed functions to highlight it
+  const hasFunctions = !message.isUser && message.executedFunctions && message.executedFunctions.length > 0;
+  const hasPendingCalls = !message.isUser && message.hasPendingCalls && message.pendingCallsCount;
+  
+  return (
+    <div 
+      className={cn(
+        "flex items-start gap-3 mb-4 max-w-[90%]",
+        message.isUser ? "ml-auto flex-row-reverse" : ""
       )}
-    </div>
-    
-    <div>
+    >
       <div className={cn(
-        "p-3 rounded-lg text-sm",
+        "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center",
         message.isUser 
-          ? "bg-primary text-primary-foreground rounded-tr-none" 
-          : "bg-secondary/20 border border-border rounded-tl-none"
+          ? "bg-primary" 
+          : hasFunctions
+            ? "bg-emerald-500" // Green for function execution
+            : hasPendingCalls
+              ? "bg-amber-500" // Amber for pending approvals
+              : "bg-secondary/50" // Default assistant color
       )}>
-        {message.content}
+        {message.isUser ? (
+          <User className="h-4 w-4 text-primary-foreground" />
+        ) : (
+          <Bot className="h-4 w-4 text-foreground" />
+        )}
       </div>
-      <div className="text-xs text-muted-foreground mt-1">
-        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+      
+      <div>
+        <div className={cn(
+          "p-3 rounded-lg text-sm",
+          message.isUser 
+            ? "bg-primary text-primary-foreground rounded-tr-none" 
+            : hasFunctions
+              ? "bg-emerald-500/10 border border-emerald-500/30 rounded-tl-none" // Green tint for function messages
+              : hasPendingCalls
+                ? "bg-amber-500/10 border border-amber-500/30 rounded-tl-none" // Amber tint for pending approvals
+                : "bg-secondary/20 border border-border rounded-tl-none" // Default assistant style
+        )}>
+          {/* Add badge for function execution */}
+          {hasFunctions && (
+            <div className="flex items-center gap-2 mb-2 pb-2 border-b border-emerald-500/20">
+              <span className="bg-emerald-500 text-white px-2 py-0.5 rounded-full text-[10px] font-medium">
+                Actions Performed
+              </span>
+            </div>
+          )}
+          
+          {/* Add badge for pending approvals */}
+          {hasPendingCalls && !hasFunctions && (
+            <div className="flex items-center gap-2 mb-2 pb-2 border-b border-amber-500/20">
+              <span className="bg-amber-500 text-white px-2 py-0.5 rounded-full text-[10px] font-medium">
+                Approval Needed
+              </span>
+            </div>
+          )}
+          
+          {message.content}
+
+          {!message.isUser && (
+            <>
+              {message.executedFunctions && message.executedFunctions.length > 0 && 
+                <ExecutedFunctions functions={message.executedFunctions} />
+              }
+              {message.hasPendingCalls && message.pendingCallsCount && 
+                <PendingCallsNotification count={message.pendingCallsCount} />
+              }
+            </>
+          )}
+        </div>
+        <div className="text-xs text-muted-foreground mt-1">
+          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const LoadingIndicator = ({ type }: { type: 'thinking' | 'generating' | 'analyzing' }) => (
   <div className="flex items-start gap-3 mb-4">
@@ -114,7 +348,10 @@ export const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
         id: msg.id,
         content: msg.content,
         isUser: msg.role === 'user',
-        timestamp: msg.timestamp
+        timestamp: msg.timestamp,
+        executedFunctions: msg.executedFunctions,
+        hasPendingCalls: msg.hasPendingCalls,
+        pendingCallsCount: msg.pendingCallsCount
       }));
     };
     

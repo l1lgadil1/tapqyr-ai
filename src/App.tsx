@@ -14,6 +14,7 @@ import { SplitLayout } from "./widgets/layout";
 import { useEffect } from "react";
 import { useToast } from "./shared/ui/use-toast";
 import { useNavigate } from "react-router-dom";
+import { DebugPanel } from "./features/ai-assistant/ui/debug-panel";
 
 // Define custom event type for auth errors
 interface AuthErrorEvent extends CustomEvent {
@@ -97,6 +98,9 @@ function App() {
                   {/* Toast Notifications */}
                   <Toaster />
                   <GlobalErrorHandler />
+                  
+                  {/* Debug Panel - only visible in development */}
+                  <DebugPanel />
                 </div>
               </AuthProvider>
             </ThemeProvider>

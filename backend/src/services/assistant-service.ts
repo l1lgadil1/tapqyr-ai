@@ -150,23 +150,139 @@ class AssistantService {
     try {
       logger.info(`Sending message to thread ${threadId} for user ${userId}`);
       
+      // First check if there are any active runs on this thread
+      try {
+        const runsList = await openai.beta.threads.runs.list(threadId, {
+          limit: 1
+        });
+        
+        if (runsList.data.length > 0) {
+          const latestRun = runsList.data[0];
+          if (['in_progress', 'queued', 'requires_action'].includes(latestRun.status)) {
+            logger.warn(`Thread ${threadId} has an active run ${latestRun.id} with status ${latestRun.status}`);
+            
+            // If there's an active run, try to wait for it to complete before continuing
+            if (latestRun.status === 'requires_action' || latestRun.status === 'in_progress') {
+              logger.info(`Waiting for active run ${latestRun.id} to complete...`);
+              try {
+                await this.waitForRunCompletion(threadId, latestRun.id);
+                logger.info(`Previous run ${latestRun.id} completed, proceeding with new message`);
+              } catch (runWaitError) {
+                logger.error(`Error waiting for run completion: ${(runWaitError as Error).message}`);
+                throw new Error(`Please wait until the previous request completes: ${(runWaitError as Error).message}`);
+              }
+            }
+          }
+        }
+      } catch (checkRunError) {
+        logger.error(`Error checking for active runs: ${(checkRunError as Error).message}`);
+        // Continue anyway, as we'll catch any issues when adding the message
+      }
+      
       // Get the user's memory and context
       const userContext = await memoryService.generateAssistantContext(userId);
       
-      // Add the user message to the thread
-      await openai.beta.threads.messages.create(threadId, {
-        role: 'user',
-        content: message,
-      });
+      console.log('userContext',userContext);
       
-      // Run the assistant on the thread with user context
-      const run = await openai.beta.threads.runs.create(threadId, {
-        assistant_id: this.assistantId,
-        additional_instructions: userContext ? `Use this context about the user to personalize your responses:\n\n${userContext}` : undefined
-      });
+      let runId: string;
+      
+      try {
+        // Add the user message to the thread
+        await openai.beta.threads.messages.create(threadId, {
+          role: 'user',
+          content: message,
+        });
+        
+        // Run the assistant on the thread with user context
+        const run = await openai.beta.threads.runs.create(threadId, {
+          assistant_id: this.assistantId,
+          additional_instructions: userContext ? `Use this context about the user to personalize your responses:\n\n${userContext}` : undefined
+        });
+        
+        runId = run.id;
+      } catch (apiError: any) {
+        // Specifically handle the case where a run is already active
+        if (apiError.status === 400 && apiError.message && apiError.message.includes('while a run') && apiError.message.includes('is active')) {
+          logger.warn(`Caught active run error: ${apiError.message}`);
+          // Extract run ID from the error message if possible
+          const runIdMatch = apiError.message.match(/run_\w+/);
+          const activeRunId = runIdMatch ? runIdMatch[0] : null;
+          
+          if (activeRunId) {
+            try {
+              logger.info(`Waiting for active run ${activeRunId} to complete before retrying`);
+              // Wait for the active run to complete
+              await this.waitForRunCompletion(threadId, activeRunId);
+              
+              // Add a small delay to ensure the run is fully complete on OpenAI's side
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              
+              // Double-check run status before retrying
+              const verifyRunStatus = await openai.beta.threads.runs.retrieve(threadId, activeRunId);
+              if (['in_progress', 'queued'].includes(verifyRunStatus.status)) {
+                logger.warn(`Run ${activeRunId} still shows status ${verifyRunStatus.status} after waiting. Delaying retry.`);
+                throw new Error(`Previous request is still processing. Please try again in a few moments.`);
+              } else if (verifyRunStatus.status === 'requires_action') {
+                // If run requires action, return the run information instead of showing an error
+                logger.info(`Run ${activeRunId} requires action, retrieving information`);
+                
+                // Get latest messages for context
+                const messages = await openai.beta.threads.messages.list(threadId);
+                
+                // Prepare response with action requirements
+                const assistantMessages = messages.data
+                  .filter(msg => msg.role === 'assistant')
+                  .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                
+                if (assistantMessages.length === 0) {
+                  throw new Error('No response available');
+                }
+                
+                // Check for pending calls
+                const pendingCalls = await pendingCallService.getPendingCalls(userId);
+                
+                // Return the current state with requires_action flag
+                return {
+                  ...assistantMessages[0],
+                  requires_action: true,
+                  run_id: activeRunId,
+                  has_pending_calls: pendingCalls.length > 0,
+                  pending_calls_count: pendingCalls.length
+                };
+              }
+              
+              // After the run completes, retry creating a new message and run
+              logger.info(`Previous run completed, retrying message send`);
+              const retryMessage = await openai.beta.threads.messages.create(threadId, {
+                role: 'user',
+                content: message,
+              });
+              
+              const retryRun = await openai.beta.threads.runs.create(threadId, {
+                assistant_id: this.assistantId,
+                instructions: userContext,
+              });
+              
+              runId = retryRun.id;
+            } catch (retryError) {
+              logger.error(`Error during retry after active run: ${(retryError as Error).message}`);
+              throw new Error(`Unable to process your request. Please try again in a few moments.`);
+            }
+          } else {
+            // If we couldn't extract a run ID, ask the user to wait
+            throw new Error(`Please wait a moment. Your previous request is still being processed.`);
+          }
+        } else {
+          // For other API errors, rethrow
+          throw apiError;
+        }
+      }
       
       // Wait for the run to complete
-      const completedRun = await this.waitForRunCompletion(threadId, run.id);
+      const completedRun = await this.waitForRunCompletion(threadId, runId);
+      
+      // Track executed functions
+      const executedFunctions = [];
       
       // Check if there are any required actions (function calls)
       if (completedRun.status === 'requires_action' && 
@@ -174,7 +290,115 @@ class AssistantService {
         
         // Handle function calls
         const toolCalls = completedRun.required_action.submit_tool_outputs.tool_calls;
-        const toolOutputs = await this.processFunctionCalls(userId, threadId, run.id, toolCalls);
+        const toolOutputs = [];
+        
+        for (const tool of toolCalls) {
+          const functionName = tool.function.name;
+          const functionArgs = JSON.parse(tool.function.arguments);
+          
+          try {
+            let result;
+            let needsConfirmation = false;
+            
+            // Determine if this function call needs confirmation or can be executed directly
+            switch (functionName) {
+              case 'create_task':
+                // Direct execution for clear task creation
+                if (functionArgs.title && functionArgs.title.trim() !== '') {
+                  result = await this.createTask(userId, functionArgs);
+                  executedFunctions.push({
+                    function: functionName,
+                    args: functionArgs,
+                    result: { id: result.id, title: result.title }
+                  });
+                } else {
+                  needsConfirmation = true;
+                }
+                break;
+                
+              case 'update_task':
+                // Direct execution when taskId is provided
+                if (functionArgs.taskId) {
+                  result = await this.updateTask(userId, functionArgs);
+                  executedFunctions.push({
+                    function: functionName,
+                    args: functionArgs,
+                    result: { id: result.id, title: result.title }
+                  });
+                } else {
+                  needsConfirmation = true;
+                }
+                break;
+                
+              case 'delete_task':
+                // This always needs confirmation
+                needsConfirmation = true;
+                break;
+                
+              case 'get_tasks':
+                // Direct execution for reading tasks
+                result = await this.getTasks(userId, functionArgs);
+                executedFunctions.push({
+                  function: functionName,
+                  args: functionArgs,
+                  result: { count: result.length }
+                });
+                break;
+                
+              case 'analyze_productivity':
+                // Direct execution for analysis
+                result = await this.analyzeProductivity(
+                  userId, 
+                  functionArgs.startDate, 
+                  functionArgs.endDate
+                );
+                executedFunctions.push({
+                  function: functionName,
+                  args: functionArgs,
+                  result: { analysisGenerated: true }
+                });
+                break;
+                
+              default:
+                needsConfirmation = true;
+                break;
+            }
+            
+            if (needsConfirmation) {
+              // Store for confirmation instead of executing
+              await pendingCallService.createPendingCall(
+                userId,
+                threadId,
+                runId,
+                tool.id,
+                functionName,
+                tool.function.arguments
+              );
+              
+              toolOutputs.push({
+                tool_call_id: tool.id,
+                output: JSON.stringify({
+                  status: 'needs_confirmation',
+                  message: `The ${functionName} action requires your confirmation.`
+                }),
+              });
+            } else {
+              // Return the successful result
+              toolOutputs.push({
+                tool_call_id: tool.id,
+                output: JSON.stringify(result),
+              });
+              
+              // Log the executed function
+              logger.info(`Executed function ${functionName} for user ${userId}`);
+            }
+          } catch (error) {
+            toolOutputs.push({
+              tool_call_id: tool.id,
+              output: JSON.stringify({ error: (error as Error).message }),
+            });
+          }
+        }
         
         // Submit the tool outputs
         await openai.beta.threads.runs.submitToolOutputs(
@@ -183,7 +407,7 @@ class AssistantService {
           { tool_outputs: toolOutputs }
         );
         
-        // Wait for the run to complete again
+        // Wait for the run to complete again after submitting tool outputs
         await this.waitForRunCompletion(threadId, completedRun.id);
       }
       
@@ -202,36 +426,44 @@ class AssistantService {
       // Record this interaction in the user's memory
       await this.recordInteraction(userId, message, assistantMessages[0]);
       
-      // Check if there are any pending function calls for this user
+      // Check if there are any pending confirmations for this user
       const pendingCalls = await pendingCallService.getPendingCalls(userId);
       
-      // If there are pending calls, append information to the response
-      if (pendingCalls.length > 0) {
-        // Get the original message content
-        const originalContent = assistantMessages[0].content;
+      // Enhance the response with function execution information and pending confirmations
+      const originalContent = assistantMessages[0].content;
+      const enhancedMessage = {
+        ...assistantMessages[0],
+        content: originalContent,
+        executed_functions: executedFunctions,
+        has_pending_calls: pendingCalls.length > 0,
+        pending_calls_count: pendingCalls.length
+      };
+      
+      // If functions were executed, ensure they're visible in the response
+      if (executedFunctions.length > 0 || pendingCalls.length > 0) {
+        // The frontend will use this information to display executed functions
+        logger.info(`Response includes ${executedFunctions.length} executed functions and ${pendingCalls.length} pending calls`);
         
-        // Create a new message with additional information about pending actions
-        const enhancedMessage = {
-          ...assistantMessages[0],
-          content: originalContent.map(content => {
-            if (content.type === 'text') {
-              return {
-                type: 'text',
-                text: {
-                  value: content.text.value + `\n\n**I need your approval for ${pendingCalls.length} action(s).** Please check your pending actions to approve or reject them.`
-                }
-              };
+        // If tasks were created, add a note that they're available in the task list
+        const createdTasks = executedFunctions.filter(fn => fn.function === 'create_task');
+        if (createdTasks.length > 0) {
+          logger.info(`${createdTasks.length} tasks were created and are available in the user's task list`);
+          
+          // Find the first text content to append to
+          if (Array.isArray(enhancedMessage.content)) {
+            for (let i = 0; i < enhancedMessage.content.length; i++) {
+              const content = enhancedMessage.content[i];
+              if (content.type === 'text' && content.text) {
+                // Add note that task was saved to database
+                content.text.value += `\n\n**Note:** The task${createdTasks.length > 1 ? 's' : ''} ${createdTasks.length > 1 ? 'have' : 'has'} been added to your task list. You can view ${createdTasks.length > 1 ? 'them' : 'it'} in your Tasks dashboard.`;
+                break;
+              }
             }
-            return content;
-          }),
-          has_pending_calls: true,
-          pending_calls_count: pendingCalls.length
-        };
-        
-        return enhancedMessage;
+          }
+        }
       }
       
-      return assistantMessages[0];
+      return enhancedMessage;
     } catch (error) {
       logger.error(`Error sending message: ${(error as Error).message}`);
       throw new Error(`Failed to send message: ${(error as Error).message}`);
@@ -325,30 +557,44 @@ class AssistantService {
       let result;
       
       // Execute the appropriate function based on the name
-        switch (functionName) {
-          case 'create_task':
-            result = await this.createTask(userId, functionArgs);
-            break;
-          case 'update_task':
-            result = await this.updateTask(userId, functionArgs);
-            break;
-          case 'delete_task':
-            result = await this.deleteTask(userId, functionArgs);
-            break;
-          case 'get_tasks':
-            result = await this.getTasks(userId, functionArgs);
-            break;
-          case 'analyze_productivity':
-            result = await this.analyzeProductivity(userId, functionArgs);
-            break;
-          default:
-            throw new Error(`Unknown function: ${functionName}`);
-        }
-        
+      switch (functionName) {
+        case 'create_task':
+          result = await this.createTask(userId, functionArgs);
+          
+          // Log detailed information for debugging
+          logger.info(`Task created successfully via approval: ${result.id} - ${result.title} for user ${userId}`);
+          break;
+          
+        case 'update_task':
+          result = await this.updateTask(userId, functionArgs);
+          
+          // Log detailed information for debugging
+          logger.info(`Task updated successfully via approval: ${result.id} - ${result.title} for user ${userId}`);
+          break;
+          
+        case 'delete_task':
+          result = await this.deleteTask(userId, functionArgs);
+          
+          // Log detailed information for debugging
+          logger.info(`Task deleted successfully via approval: ${functionArgs.taskId} for user ${userId}`);
+          break;
+          
+        case 'get_tasks':
+          result = await this.getTasks(userId, functionArgs);
+          break;
+          
+        case 'analyze_productivity':
+          result = await this.analyzeProductivity(userId, functionArgs.startDate, functionArgs.endDate);
+          break;
+          
+        default:
+          throw new Error(`Unknown function: ${functionName}`);
+      }
+      
       // Return the result
       return result;
         
-      } catch (error) {
+    } catch (error) {
       logger.error(`Error executing approved call: ${(error as Error).message}`);
       throw new Error(`Failed to execute approved call: ${(error as Error).message}`);
     }

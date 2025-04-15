@@ -15,6 +15,7 @@ import todoRoutes from './routes/todo-routes';
 import userRoutes from './routes/user-routes';
 import authRoutes from './routes/auth-routes';
 import assistantRoutes from './routes/assistant-routes';
+import configureAssistant from './setup/configure-assistant';
 
 // Create Express application
 const app = express();
@@ -58,7 +59,7 @@ app.use(errorHandler);
 
 // Start server
 const PORT = config.port;
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, async () => {
   logger.info(`Server running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
   
   // Set up scheduled task to clean up expired blacklisted tokens
@@ -70,6 +71,14 @@ const server = app.listen(PORT, () => {
       logger.error(`Error cleaning up blacklisted tokens: ${(error as Error).message}`);
     }
   }, 60 * 60 * 1000); // 1 hour
+
+  // Configure the assistant on startup
+  try {
+    await configureAssistant();
+    logger.info('OpenAI Assistant configured successfully with task functions');
+  } catch (error) {
+    logger.error('Failed to configure assistant:', error);
+  }
 });
 
 // Handle unhandled promise rejections

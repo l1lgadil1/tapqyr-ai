@@ -40,10 +40,25 @@ export interface AssistantResponseData {
   created_at: number;
 }
 
+export interface ExecutedFunction {
+  function: string;
+  args: Record<string, unknown>;
+  result: {
+    id?: string;
+    title?: string;
+    count?: number;
+    analysisGenerated?: boolean;
+    [key: string]: unknown;
+  };
+}
+
 export interface AssistantResponse {
   threadId: string;
   message: string;
   response: AssistantResponseData;
+  executed_functions?: ExecutedFunction[];
+  has_pending_calls?: boolean;
+  pending_calls_count?: number;
 }
 
 export interface ProductivityAnalysis {
