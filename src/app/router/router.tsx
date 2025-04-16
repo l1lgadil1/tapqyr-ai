@@ -6,6 +6,7 @@ import DebugPage from '../../pages/debug-page';
 import App from '../../App';
 import { ErrorElement } from '../../shared/ui/error-element';
 import { TasksPage } from '../../pages/todo-page';
+import { TodosDashboard } from '../../pages/todo-page/ui';
 import { AnalyticsPage } from '../../pages/analytics-page/ui/analytics-page';
 
 export const router = createBrowserRouter([
@@ -26,6 +27,11 @@ export const router = createBrowserRouter([
       {
         path: 'todo',
         element: <TasksPage />,
+        errorElement: <ErrorElement />
+      },
+      {
+        path: 'todo-dashboard',
+        element: <TodosDashboard />,
         errorElement: <ErrorElement />
       },
       {

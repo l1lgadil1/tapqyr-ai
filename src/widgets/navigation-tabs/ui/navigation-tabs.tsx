@@ -37,6 +37,15 @@ export function NavigationTabs() {
           {t('analytics', { defaultValue: 'Analytics' })}
         </TabsTrigger>
       </Link>
+      <Link to="/todo-dashboard">
+        <TabsTrigger
+          value="todo-dashboard"
+          className="data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none rounded-none border-b-2 border-transparent px-4 py-3 flex gap-2 items-center hover:bg-muted/50 transition-colors duration-200"
+        >
+          <BarChart3 className="h-4 w-4" />
+          {t('todo-dashboard', { defaultValue: 'Todo Dashboard' })}
+        </TabsTrigger>
+      </Link>
     </TabsList>
   );
 } 

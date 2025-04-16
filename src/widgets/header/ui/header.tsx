@@ -106,6 +106,9 @@ export const Header: FC = () => {
                               <DropdownMenuItem asChild>
                                   <Link to="/todo">{t('nav.todo')}</Link>
                               </DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                  <Link to="/todo-dashboard">{t('nav.todoDashboard', { defaultValue: 'Todo Dashboard' })}</Link>
+                              </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem className="cursor-pointer" onClick={handleLogout}>
                                   {t('auth.logout')}

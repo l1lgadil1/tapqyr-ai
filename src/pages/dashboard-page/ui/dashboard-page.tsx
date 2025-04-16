@@ -3,11 +3,10 @@
 import { Helmet } from 'react-helmet-async';
 import { useTranslation } from '../../../shared/lib/i18n';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../shared/ui/card';
-import { Tabs, TabsContent } from '../../../shared/ui/tabs/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../shared/ui/tabs/tabs';
 import { CheckCircle, Clock, AlertTriangle, TrendingUp, BarChart3 } from 'lucide-react';
 import { useDashboardTodos } from '../hooks/useDashboardTodos';
 import { DashboardTodoList } from './dashboard-todo-list';
-import { NavigationTabs } from '../ui/navigation-tabs';
 
 /**
  * Dashboard Page Component
@@ -29,7 +28,11 @@ export function DashboardPage() {
       
       <div className="container mx-auto px-4 py-6 max-w-4xl">
         <Tabs defaultValue="dashboard" className="w-full">
-          {/* <NavigationTabs activeTab="dashboard" /> */}
+          <TabsList className="grid grid-cols-3 mb-6">
+            <TabsTrigger value="dashboard">{t('dashboard', { defaultValue: 'Dashboard' })}</TabsTrigger>
+            <TabsTrigger value="tasks">{t('tasks', { defaultValue: 'Tasks' })}</TabsTrigger>
+            <TabsTrigger value="analytics">{t('analytics', { defaultValue: 'Analytics' })}</TabsTrigger>
+          </TabsList>
           
           <TabsContent value="dashboard" className="mt-0">
             <div className="grid gap-6">
@@ -175,6 +178,70 @@ export function DashboardPage() {
                   statusFilter={upcomingTodos.statusFilter}
                   onStatusFilterChange={upcomingTodos.setStatusFilter}
                 />
+              </section>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="tasks">
+            <div className="grid gap-6">
+              <section>
+                <h2 className="text-2xl font-bold mb-4">{t('allTasks', { defaultValue: 'All Tasks' })}</h2>
+                <DashboardTodoList
+                  todos={todayTodos.items.concat(upcomingTodos.items)}
+                  isLoading={todayTodos.isLoading || upcomingTodos.isLoading}
+                  error={todayTodos.error || upcomingTodos.error}
+                  totalItems={todayTodos.totalItems + upcomingTodos.totalItems}
+                  emptyMessage={t('noTasks', { defaultValue: 'No tasks available' })}
+                  viewAllLink="/todo"
+                  viewAllLabel={t('manageAllTasks', { defaultValue: 'Manage All Tasks' })}
+                  hasMore={todayTodos.hasMore || upcomingTodos.hasMore}
+                  onLoadMore={() => {
+                    if (todayTodos.hasMore) todayTodos.loadMore();
+                    if (upcomingTodos.hasMore) upcomingTodos.loadMore();
+                  }}
+                  searchQuery={todayTodos.searchQuery}
+                  onSearchChange={todayTodos.setSearchQuery}
+                  priorityFilter={todayTodos.priorityFilter}
+                  onPriorityFilterChange={todayTodos.setPriorityFilter}
+                  statusFilter={todayTodos.statusFilter}
+                  onStatusFilterChange={todayTodos.setStatusFilter}
+                />
+              </section>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="analytics">
+            <div className="grid gap-6">
+              <section>
+                <h2 className="text-2xl font-bold mb-4">{t('detailedAnalytics', { defaultValue: 'Detailed Analytics' })}</h2>
+                <Card className="border-primary/10 bg-card/80 backdrop-blur-sm">
+                  <CardContent className="p-6">
+                    <div className="flex flex-col gap-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <TrendingUp className="h-5 w-5 text-primary" />
+                          <span className="font-medium">{t('productivityScore', { defaultValue: 'Productivity Score' })}</span>
+                        </div>
+                        <span className="font-bold text-lg">85/100</span>
+                      </div>
+                      
+                      <div className="mt-4">
+                        <h3 className="text-sm font-medium mb-2">{t('taskCompletionTrend', { defaultValue: 'Task Completion Trend' })}</h3>
+                        <div className="h-40 w-full bg-secondary/10 rounded-md flex items-end justify-between p-2">
+                          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, i) => (
+                            <div key={day} className="flex flex-col items-center gap-1">
+                              <div 
+                                className="bg-primary w-8 rounded-t-sm" 
+                                style={{ height: `${[60, 45, 80, 65, 90, 40, 75][i]}%` }}
+                              ></div>
+                              <span className="text-xs">{day}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               </section>
             </div>
           </TabsContent>
