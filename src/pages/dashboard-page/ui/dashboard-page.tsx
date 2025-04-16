@@ -29,7 +29,7 @@ export function DashboardPage() {
       
       <div className="container mx-auto px-4 py-6 max-w-4xl">
         <Tabs defaultValue="dashboard" className="w-full">
-          <NavigationTabs activeTab="dashboard" />
+          {/* <NavigationTabs activeTab="dashboard" /> */}
           
           <TabsContent value="dashboard" className="mt-0">
             <div className="grid gap-6">

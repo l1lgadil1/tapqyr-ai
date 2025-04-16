@@ -1,3 +1,4 @@
-export * from './auth-service';
-export * from './user-service';
-export * from './todo-service'; 
+export { authService } from './auth-service';
+export { userService } from './user-service';
+export { todoService } from './todo-service';
+export { analyticsService } from './analytics-service'; 

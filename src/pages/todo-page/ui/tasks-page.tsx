@@ -3,6 +3,8 @@ import { TaskListExample, FloatingActionButton } from "../../../features/tasks-l
 import { TaskEditDialog } from "../../../features/tasks-list/ui/task-edit-dialog";
 import { tasksApi } from "../../../features/tasks-list/model/api";
 import { Task } from "../../../features/tasks-list/model/types";
+import { NavigationTabs } from '../../../widgets/navigation-tabs/ui/navigation-tabs';
+import { Tabs, TabsContent } from "../../../shared/ui/tabs/tabs";
 
 export function TasksPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -25,15 +27,18 @@ export function TasksPage() {
   };
 
   return (
-    <>
-      <TaskListExample key={refreshKey} />
-      <FloatingActionButton onClick={handleAddTask} />
-      <TaskEditDialog 
-        open={isDialogOpen} 
-        onOpenChange={setIsDialogOpen} 
-        task={null} 
-        onSave={handleSaveTask} 
-      />
-    </>
+      <Tabs defaultValue="todos" className="w-full">
+          <NavigationTabs />
+          <TabsContent value="todos" className="mt-6">
+            <TaskListExample key={refreshKey} />
+          </TabsContent>
+          <FloatingActionButton onClick={handleAddTask} />
+          <TaskEditDialog
+              open={isDialogOpen}
+              onOpenChange={setIsDialogOpen}
+              task={null}
+              onSave={handleSaveTask}
+          />
+      </Tabs>
   );
 }

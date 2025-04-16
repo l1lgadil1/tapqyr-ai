@@ -292,7 +292,6 @@ const resetTasks = useCallback(() => {
           task.id === id ? { ...task, completed: !task.completed } : task
         )
       );
-      
       // Refresh stats after toggling completion
       fetchStats();
       

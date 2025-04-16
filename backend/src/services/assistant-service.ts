@@ -454,8 +454,8 @@ class AssistantService {
             for (let i = 0; i < enhancedMessage.content.length; i++) {
               const content = enhancedMessage.content[i];
               if (content.type === 'text' && content.text) {
-                // Add note that task was saved to database
-                content.text.value += `\n\n**Note:** The task${createdTasks.length > 1 ? 's' : ''} ${createdTasks.length > 1 ? 'have' : 'has'} been added to your task list. You can view ${createdTasks.length > 1 ? 'them' : 'it'} in your Tasks dashboard.`;
+                // Add a futuristic task creation note
+                content.text.value += `\n\n⚡️ **AI ASSISTANT ACTION:** ${createdTasks.length > 1 ? 'Multiple tasks have' : 'A task has'} been created and added to your task list. ${createdTasks.length > 1 ? 'They are' : 'It is'} now available in your Tasks dashboard.`;
                 break;
               }
             }

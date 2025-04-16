@@ -1,0 +1,11 @@
+com/tapqyr/analytics/AnalyticsServiceApplication.class
+com/tapqyr/analytics/model/UserMemory.class
+com/tapqyr/analytics/repository/UserMemoryRepository.class
+com/tapqyr/analytics/model/Todo.class
+com/tapqyr/analytics/controller/UserAnalyticsController.class
+com/tapqyr/analytics/config/WebConfig.class
+com/tapqyr/analytics/service/UserAnalyticsService.class
+com/tapqyr/analytics/config/OpenApiConfig.class
+com/tapqyr/analytics/model/User.class
+com/tapqyr/analytics/repository/UserRepository.class
+com/tapqyr/analytics/repository/TodoRepository.class

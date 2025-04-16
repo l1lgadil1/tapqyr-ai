@@ -203,10 +203,93 @@ const PendingCallsNotification = ({ count }: { count: number }) => {
   );
 };
 
+// Component for futuristic task creation message by AI
+const TaskCreationMessage = ({ functions }: { functions: ExecutedFunction[] | undefined }) => {
+  if (!functions || functions.length === 0) return null;
+  
+  // Filter to only get task creation functions
+  const taskCreations = functions.filter(fn => fn.function === 'create_task');
+  if (taskCreations.length === 0) return null;
+  
+  // Helper function to safely check if a property exists and is a string or can be converted to string
+  const safeGetString = (obj: Record<string, unknown>, key: string): string | null => {
+    if (obj[key] !== undefined && obj[key] !== null) {
+      return String(obj[key]);
+    }
+    return null;
+  };
+  
+  return (
+    <div className="mt-4 space-y-3">
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg p-4 shadow-lg transform transition-all duration-300 hover:scale-[1.01]">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="bg-white/20 rounded-full p-1">
+              <Bot className="h-4 w-4 text-white" />
+            </div>
+            <span className="text-white font-bold tracking-wide text-sm">AI ASSISTANT</span>
+          </div>
+          <div className="bg-white/20 px-2 py-0.5 rounded-full">
+            <span className="text-white text-xs">Task Created</span>
+          </div>
+        </div>
+        
+        <div className="space-y-3">
+          {taskCreations.map((fn, index) => {
+            const title = fn.result.title || 'Untitled Task';
+            const description = safeGetString(fn.args, 'description');
+            const priority = safeGetString(fn.args, 'priority');
+            const dueDate = safeGetString(fn.args, 'dueDate');
+            
+            return (
+              <div key={index} className="bg-white/10 rounded-md backdrop-blur-sm p-3 border border-white/20">
+                <h4 className="text-white font-medium mb-2">{title}</h4>
+                {description && (
+                  <p className="text-white/80 text-xs mb-2">{description}</p>
+                )}
+                <div className="flex items-center gap-3 mt-3">
+                  {priority && (
+                    <div className={`px-2 py-0.5 rounded-full text-[10px] uppercase font-medium ${
+                      priority.toLowerCase() === 'high' 
+                        ? 'bg-red-500/30 text-white' 
+                        : priority.toLowerCase() === 'medium'
+                          ? 'bg-amber-500/30 text-white' 
+                          : 'bg-blue-500/30 text-white'
+                    }`}>
+                      {priority}
+                    </div>
+                  )}
+                  {dueDate && (
+                    <div className="bg-white/20 px-2 py-0.5 rounded-full text-[10px] text-white">
+                      Due: {dueDate}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        
+        <div className="mt-4 pt-3 border-t border-white/20 flex justify-between items-center">
+          <div className="text-xs text-white/70">Added to your task list</div>
+          <div className="animate-pulse">
+            <div className="h-2 w-2 bg-emerald-400 rounded-full inline-block mr-1"></div>
+            <span className="text-xs text-emerald-300 font-medium">COMPLETE</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Message = ({ message }: MessageProps) => {
   // Check if message has executed functions to highlight it
   const hasFunctions = !message.isUser && message.executedFunctions && message.executedFunctions.length > 0;
   const hasPendingCalls = !message.isUser && message.hasPendingCalls && message.pendingCallsCount;
+  
+  // Check if this is a task creation message
+  const hasTaskCreation = !message.isUser && message.executedFunctions && 
+    message.executedFunctions.some(fn => fn.function === 'create_task');
   
   return (
     <div 
@@ -219,11 +302,13 @@ const Message = ({ message }: MessageProps) => {
         "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center",
         message.isUser 
           ? "bg-primary" 
-          : hasFunctions
-            ? "bg-emerald-500" // Green for function execution
-            : hasPendingCalls
-              ? "bg-amber-500" // Amber for pending approvals
-              : "bg-secondary/50" // Default assistant color
+          : hasTaskCreation
+            ? "bg-gradient-to-r from-blue-600 to-indigo-600" // Futuristic gradient for task creation
+            : hasFunctions
+              ? "bg-emerald-500" // Green for function execution
+              : hasPendingCalls
+                ? "bg-amber-500" // Amber for pending approvals
+                : "bg-secondary/50" // Default assistant color
       )}>
         {message.isUser ? (
           <User className="h-4 w-4 text-primary-foreground" />
@@ -237,17 +322,29 @@ const Message = ({ message }: MessageProps) => {
           "p-3 rounded-lg text-sm",
           message.isUser 
             ? "bg-primary text-primary-foreground rounded-tr-none" 
-            : hasFunctions
-              ? "bg-emerald-500/10 border border-emerald-500/30 rounded-tl-none" // Green tint for function messages
-              : hasPendingCalls
-                ? "bg-amber-500/10 border border-amber-500/30 rounded-tl-none" // Amber tint for pending approvals
-                : "bg-secondary/20 border border-border rounded-tl-none" // Default assistant style
+            : hasTaskCreation
+              ? "bg-gradient-to-r from-blue-600/5 to-indigo-600/5 border border-blue-500/20 rounded-tl-none" // Gradient background for task creation
+              : hasFunctions
+                ? "bg-emerald-500/10 border border-emerald-500/30 rounded-tl-none" // Green tint for function messages
+                : hasPendingCalls
+                  ? "bg-amber-500/10 border border-amber-500/30 rounded-tl-none" // Amber tint for pending approvals
+                  : "bg-secondary/20 border border-border rounded-tl-none" // Default assistant style
         )}>
           {/* Add badge for function execution */}
-          {hasFunctions && (
+          {hasFunctions && !hasTaskCreation && (
             <div className="flex items-center gap-2 mb-2 pb-2 border-b border-emerald-500/20">
               <span className="bg-emerald-500 text-white px-2 py-0.5 rounded-full text-[10px] font-medium">
                 Actions Performed
+              </span>
+            </div>
+          )}
+          
+          {/* Add badge for task creation */}
+          {hasTaskCreation && (
+            <div className="flex items-center gap-2 mb-2 pb-2 border-b border-blue-500/20">
+              <span className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-2 py-0.5 rounded-full text-[10px] font-medium flex items-center gap-1">
+                <Bot className="h-3 w-3" />
+                <span>AI Task Created</span>
               </span>
             </div>
           )}
@@ -265,9 +362,16 @@ const Message = ({ message }: MessageProps) => {
 
           {!message.isUser && (
             <>
-              {message.executedFunctions && message.executedFunctions.length > 0 && 
-                <ExecutedFunctions functions={message.executedFunctions} />
-              }
+              {hasTaskCreation ? (
+                <TaskCreationMessage functions={message.executedFunctions} />
+              ) : (
+                <>
+                  {message.executedFunctions && message.executedFunctions.length > 0 && 
+                    <ExecutedFunctions functions={message.executedFunctions} />
+                  }
+                </>
+              )}
+              
               {message.hasPendingCalls && message.pendingCallsCount && 
                 <PendingCallsNotification count={message.pendingCallsCount} />
               }

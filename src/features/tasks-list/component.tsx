@@ -8,9 +8,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import { TaskItem } from "./ui/task-item";
 import { TasksListLayout } from "./ui/tasks-list-layout";
 import { Loader2 } from "lucide-react";
-// import { tasksApi } from "./model/api";
-// import { TaskViewDialog } from "./ui/task-view-dialog";
+import { tasksApi } from "./model/api";
+import { TaskEditDialog } from "./ui/task-edit-dialog";
 import { cn } from "../../shared/lib/utils";
+import { Task } from "./model/types";
 
 export interface TasksListProps {
     className?: string;
@@ -72,9 +73,8 @@ export function TasksList({ className }: TasksListProps = {}) {
     });
 
     // State for task viewing and editing
-    // Commented out since we're not using TaskViewDialog right now
-    // const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-    // const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
     // Track the last filter state to detect changes
     const [filterChangeCounter, setFilterChangeCounter] = useState(0);
@@ -85,8 +85,14 @@ export function TasksList({ className }: TasksListProps = {}) {
     // Ensure we fetch data on initial mount if the filter hook doesn't
     const initialFetchRef = useRef(true);
 
+    // State for client-side filtered tasks
+    const [clientFilteredTasks, setClientFilteredTasks] = useState<Task[]>([]);
+
     // Apply client-side filtering if needed
-    const filteredTasks = filterTasks(tasks);
+    // Use our local state for rendering instead of direct filterTasks result
+    useEffect(() => {
+        setClientFilteredTasks(filterTasks(tasks));
+    }, [tasks, filterTasks]);
 
     // Fetch initial data if none was fetched by the filter hook
     useEffect(() => {
@@ -148,14 +154,30 @@ export function TasksList({ className }: TasksListProps = {}) {
     const handleTaskView = (id: string) => {
         const task = tasks.find(task => task.id === id);
         if (task) {
-            // setSelectedTask(task);
-            // setIsViewModalOpen(true);
-            console.log('Task view not implemented:', task);
+            setSelectedTask(task);
+            setIsEditModalOpen(true);
         }
     };
 
-    // Save edited task - commented out since the dialog is not used
-    /* 
+    // Custom handler for toggling task completion
+    const handleToggleCompletion = async (id: string) => {
+        // Find the task that's being toggled
+        const task = tasks.find(task => task.id === id);
+        if (!task) return;
+        
+        const willBeCompleted = !task.completed;
+        
+        // If the task will be completed and we're in active filter mode,
+        // remove it from the client-side filtered list immediately
+        if (willBeCompleted && statusFilter === 'active') {
+            setClientFilteredTasks(prev => prev.filter(t => t.id !== id));
+        }
+        
+        // Proceed with the actual API call
+        await toggleTaskCompletion(id);
+    };
+
+    // Save edited task
     const handleSaveTask = async (taskData: Partial<Task>) => {
         try {
             // If we have an ID, it's an update
@@ -172,12 +194,11 @@ export function TasksList({ className }: TasksListProps = {}) {
             return Promise.reject(error);
         }
     };
-    */
 
     // Prepare content section
     const renderContent = () => {
         // Loading State
-        if (isLoading && filteredTasks.length === 0) {
+        if (isLoading && clientFilteredTasks.length === 0) {
             return (
                 <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-8 w-8 animate-spin text-primary/50" />
@@ -201,7 +222,7 @@ export function TasksList({ className }: TasksListProps = {}) {
         }
 
         // Empty State
-        if (!isLoading && !error && filteredTasks.length === 0) {
+        if (!isLoading && !error && clientFilteredTasks.length === 0) {
             return (
                 <div className="flex flex-col items-center justify-center py-10 text-center">
                     <div className="text-muted-foreground mb-2">No tasks found</div>
@@ -220,14 +241,14 @@ export function TasksList({ className }: TasksListProps = {}) {
         // Task List
         return (
             <div className="space-y-2 mt-2 pb-10">
-                <AnimatePresence initial={false}>
-                    {filteredTasks.map((task) => (
+                <AnimatePresence initial={false} mode="popLayout">
+                    {clientFilteredTasks.map((task) => (
                         <motion.div
                             key={task.id}
                             layout
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
+                            exit={{ opacity: 0, y: -10, transition: { duration: 0.2 } }}
                             transition={{ duration: 0.2 }}
                         >
                             <TaskItem
@@ -238,7 +259,7 @@ export function TasksList({ className }: TasksListProps = {}) {
                                 priority={task.priority}
                                 estimatedTime={task.estimatedTime}
                                 isUpdating={updatingTaskIds.has(task.id)}
-                                onToggle={() => toggleTaskCompletion(task.id)}
+                                onToggle={() => handleToggleCompletion(task.id)}
                                 onDelete={() => deleteTask(task.id)}
                                 onEdit={() => handleTaskView(task.id)}
                             />
@@ -247,7 +268,7 @@ export function TasksList({ className }: TasksListProps = {}) {
                 </AnimatePresence>
 
                 {/* Load More Indicator */}
-                {(hasMore && filteredTasks.length > 0) && (
+                {(hasMore && clientFilteredTasks.length > 0) && (
                     <div 
                         ref={ref}
                         className={cn(
@@ -288,11 +309,11 @@ export function TasksList({ className }: TasksListProps = {}) {
 
     // Prepare footer with task count
     const renderFooter = () => {
-        if (filteredTasks.length === 0) return null;
+        if (clientFilteredTasks.length === 0) return null;
         
         return (
             <div className="text-xs text-muted-foreground">
-                Showing {filteredTasks.length} of {totalItems} tasks
+                Showing {clientFilteredTasks.length} of {totalItems} tasks
             </div>
         );
     };
@@ -307,13 +328,13 @@ export function TasksList({ className }: TasksListProps = {}) {
                 className={className}
             />
 
-            {/* Task View/Edit Dialog */}
-            {/* <TaskViewDialog
+            {/* Task Edit Dialog */}
+            <TaskEditDialog
                 task={selectedTask}
-                open={isViewModalOpen}
-                onOpenChange={setIsViewModalOpen}
+                open={isEditModalOpen}
+                onOpenChange={setIsEditModalOpen}
                 onSave={handleSaveTask}
-            /> */}
+            />
         </>
     );
 }

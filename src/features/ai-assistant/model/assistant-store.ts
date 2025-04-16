@@ -331,7 +331,7 @@ export const useAssistantStore = create<AssistantState>((set, get) => ({
       // Now create the assistant message showing the task was created
       const assistantMessage: AssistantMessage = {
         id: `assistant-${Date.now()}`,
-        content: "I've created a test task for you. You can view it in your Tasks dashboard.",
+        content: "⚡️ I've created a new task for you. It's now available in your Tasks dashboard.",
         role: 'assistant',
         timestamp: new Date(),
         executedFunctions: [

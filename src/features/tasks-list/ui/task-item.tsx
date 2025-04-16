@@ -86,6 +86,7 @@ export function TaskItem({
       layout
       whileHover={{ scale: 1.01 }}
       whileTap={{ scale: 0.99 }}
+      onClick={() => onEdit(id)}
     >
       {/* Glow effect on hover */}
       <div 
@@ -106,7 +107,7 @@ export function TaskItem({
       </div>
       
       <div className="flex items-start gap-3 relative z-10">
-        <div className="flex-shrink-0 pt-0.5">
+        <div className="flex-shrink-0 pt-0.5" onClick={(e)=> e.stopPropagation()}>
           <CustomTooltip content={isCompleted ? "Mark as incomplete" : "Mark as complete"}>
             <Checkbox 
               checked={isCompleted} 
@@ -182,7 +183,10 @@ export function TaskItem({
               variant="ghost" 
               size="icon" 
               className="h-8 w-8 rounded-full hover:bg-white/10 hover:text-primary"
-              onClick={() => onEdit(id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(id);
+              }}
               aria-label="Edit task"
             >
               <Edit className="h-4 w-4" />
@@ -194,7 +198,10 @@ export function TaskItem({
               variant="ghost" 
               size="icon" 
               className="h-8 w-8 rounded-full hover:bg-white/10 hover:text-destructive"
-              onClick={handleDelete}
+              onClick={e=>{
+                e.stopPropagation();
+                handleDelete();
+              }}
               aria-label="Delete task"
             >
               <Trash2 className="h-4 w-4" />

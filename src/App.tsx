@@ -100,7 +100,7 @@ function App() {
                   <GlobalErrorHandler />
                   
                   {/* Debug Panel - only visible in development */}
-                  <DebugPanel />
+                  {/* <DebugPanel /> */}
                 </div>
               </AuthProvider>
             </ThemeProvider>

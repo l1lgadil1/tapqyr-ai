@@ -204,7 +204,7 @@ export const tasksApi = {
    */
   async updateTask(id: string, updates: Partial<Task>): Promise<Task> {
     try {
-      const response = await apiClient.patch(`/todos/${id}`, updates);
+      const response = await apiClient.put(`/todos/${id}`, updates);
       const data = handleApiResponse<TaskResponse>(response);
       return mapTaskResponse(data);
     } catch (error) {

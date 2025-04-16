@@ -107,6 +107,7 @@
   },
   "nav": {
     "todo": "My Tasks",
+    "analytics": "Analytics",
     "profile": "Profile",
     "settings": "Settings"
   }

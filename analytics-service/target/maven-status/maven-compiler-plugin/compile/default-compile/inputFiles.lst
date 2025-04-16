@@ -1,0 +1,12 @@
+/Users/ilyasagadilov/Desktop/projects/tapqyr-ai/analytics-service/src/main/java/com/tapqyr/analytics/controller/AnalyticsController.java
+/Users/ilyasagadilov/Desktop/projects/tapqyr-ai/analytics-service/src/main/java/com/tapqyr/analytics/repository/TodoRepository.java
+/Users/ilyasagadilov/Desktop/projects/tapqyr-ai/analytics-service/src/main/java/com/tapqyr/analytics/repository/UserMemoryRepository.java
+/Users/ilyasagadilov/Desktop/projects/tapqyr-ai/analytics-service/src/main/java/com/tapqyr/analytics/service/UserAnalyticsService.java
+/Users/ilyasagadilov/Desktop/projects/tapqyr-ai/analytics-service/src/main/java/com/tapqyr/analytics/config/OpenApiConfig.java
+/Users/ilyasagadilov/Desktop/projects/tapqyr-ai/analytics-service/src/main/java/com/tapqyr/analytics/controller/UserAnalyticsController.java
+/Users/ilyasagadilov/Desktop/projects/tapqyr-ai/analytics-service/src/main/java/com/tapqyr/analytics/config/WebConfig.java
+/Users/ilyasagadilov/Desktop/projects/tapqyr-ai/analytics-service/src/main/java/com/tapqyr/analytics/model/Todo.java
+/Users/ilyasagadilov/Desktop/projects/tapqyr-ai/analytics-service/src/main/java/com/tapqyr/analytics/model/UserMemory.java
+/Users/ilyasagadilov/Desktop/projects/tapqyr-ai/analytics-service/src/main/java/com/tapqyr/analytics/repository/UserRepository.java
+/Users/ilyasagadilov/Desktop/projects/tapqyr-ai/analytics-service/src/main/java/com/tapqyr/analytics/model/User.java
+/Users/ilyasagadilov/Desktop/projects/tapqyr-ai/analytics-service/src/main/java/com/tapqyr/analytics/AnalyticsServiceApplication.java

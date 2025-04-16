@@ -56,7 +56,7 @@ export function AIAssistantPage() {
       
       <div className="container mx-auto px-4 py-6 max-w-4xl">
         <Tabs defaultValue="assistant" className="w-full">
-          <NavigationTabs activeTab="dashboard" />
+          {/* <NavigationTabs activeTab="dashboard" /> */}
           
           <TabsContent value="assistant" className="mt-0">
             <Card className="border-primary/10 bg-card/80 backdrop-blur-sm">
