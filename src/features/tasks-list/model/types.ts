@@ -20,7 +20,7 @@ export type Task = z.infer<typeof taskSchema>;
 export type TaskResponse = z.infer<typeof taskResponseSchema>;
 
 // Common types
-export type SortType = 'newest' | 'oldest' | 'priority' | 'estimatedTime';
+export type SortType = 'newest' | 'oldest' | 'priority' | 'estimatedTime' | 'createdAt';
 export type FilterType = 'all' | 'active' | 'completed';
 export type PriorityFilter = 'all' | 'low' | 'medium' | 'high';
 
@@ -71,6 +71,7 @@ export interface TaskItemProps {
   completed: boolean;
   priority?: 'low' | 'medium' | 'high';
   estimatedTime?: string;
+  createdAt?: string;
   isUpdating?: boolean;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;

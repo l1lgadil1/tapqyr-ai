@@ -1,7 +1,7 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../shared/ui/select';
 import { cn } from '../../../shared/lib/utils';
 import { SortType, TasksSortProps } from '../model/types';
-import { ArrowDownAZ, ArrowUpAZ, Clock, AlertTriangle } from 'lucide-react';
+import { ArrowDownAZ, ArrowUpAZ, Clock, AlertTriangle, Calendar } from 'lucide-react';
 
 export function TasksSort({
   value,
@@ -41,6 +41,12 @@ export function TasksSort({
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4" />
               <span>Estimated time</span>
+            </div>
+          </SelectItem>
+          <SelectItem value="createdAt">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              <span>Created At</span>
             </div>
           </SelectItem>
         </SelectContent>

@@ -18,7 +18,7 @@ export function useTasksFilters({
   const [search, setSearch] = useQueryState('search', parseAsString.withDefault(''));
   
   // Define valid values for our enum types
-  const sortValues = ['newest', 'oldest', 'priority', 'estimatedTime'] as const;
+  const sortValues = ['newest', 'oldest', 'priority', 'estimatedTime', 'createdAt'] as const;
   const statusValues = ['all', 'active', 'completed'] as const;
   const priorityValues = ['all', 'low', 'medium', 'high'] as const;
   

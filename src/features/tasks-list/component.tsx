@@ -258,6 +258,7 @@ export function TasksList({ className }: TasksListProps = {}) {
                                 completed={task.completed}
                                 priority={task.priority}
                                 estimatedTime={task.estimatedTime}
+                                createdAt={task.createdAt}
                                 isUpdating={updatingTaskIds.has(task.id)}
                                 onToggle={() => handleToggleCompletion(task.id)}
                                 onDelete={() => deleteTask(task.id)}

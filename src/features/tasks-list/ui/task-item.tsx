@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Checkbox } from '../../../shared/ui/checkbox';
 import { Button } from '../../../shared/ui/button';
-import { Trash2, Edit, Clock, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Trash2, Edit, Clock, AlertTriangle, CheckCircle2, Calendar } from 'lucide-react';
 import { cn } from '../../../shared/lib/utils';
 import { CustomTooltip } from '../../../shared/ui/custom-tooltip';
 import { TaskItemProps } from '../model/types';
 import { Skeleton } from '../../../shared/ui/skeleton';
+import { format } from 'date-fns';
 
 export function TaskItem({
   id,
@@ -15,6 +16,7 @@ export function TaskItem({
   completed,
   priority = 'medium',
   estimatedTime,
+  createdAt,
   isUpdating = false,
   onToggle,
   onDelete,
@@ -23,6 +25,9 @@ export function TaskItem({
 }: TaskItemProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Format date if present
+  const formattedDate = createdAt ? format(new Date(createdAt), 'MMM d, yyyy') : null;
   
   // Ensure completed is always a boolean
   const isCompleted = typeof completed === 'string' ? completed === 'true' : Boolean(completed);
@@ -163,15 +168,27 @@ export function TaskItem({
             </motion.p>
           )}
           
-          {estimatedTime && (
-            <div className={cn(
-              "flex items-center text-xs gap-1 mt-2 px-2 py-1 rounded-md backdrop-blur-sm w-fit",
-              "bg-background/30 text-muted-foreground"
-            )}>
-              <Clock className="h-3 w-3" />
-              <span>{estimatedTime}</span>
-            </div>
-          )}
+          <div className="flex flex-wrap gap-2 mt-2">
+            {estimatedTime && (
+              <div className={cn(
+                "flex items-center text-xs gap-1 px-2 py-1 rounded-md backdrop-blur-sm w-fit",
+                "bg-background/30 text-muted-foreground"
+              )}>
+                <Clock className="h-3 w-3" />
+                <span>{estimatedTime}</span>
+              </div>
+            )}
+            
+            {formattedDate && (
+              <div className={cn(
+                "flex items-center text-xs gap-1 px-2 py-1 rounded-md backdrop-blur-sm w-fit",
+                "bg-background/30 text-muted-foreground"
+              )}>
+                <Calendar className="h-3 w-3" />
+                <span>{formattedDate}</span>
+              </div>
+            )}
+          </div>
         </div>
         
         <div className={cn(
